@@ -53,6 +53,7 @@ BEGIN
     BEGIN
         MENUITEM "Undo\tCtrl+Z",                ID_EDIT_UNDO, INACTIVE
         MENUITEM SEPARATOR
+        MENUITEM "Cut\tCtrl+X",                 ID_EDIT_CUT
         MENUITEM "Copy\tCtrl+C",                ID_EDIT_COPY
         MENUITEM "Paste\tCtrl+V",               ID_EDIT_PASTE
     END
@@ -71,11 +72,12 @@ END
 IDC_COLUMNMODE ACCELERATORS
 BEGIN
     "C",            ID_EDIT_COPY,           VIRTKEY, CONTROL, NOINVERT
+    "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
     "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
     "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
     "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
     "/",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
-    "V",            ID_EDIT_PASTE,          VIRTKEY, CONTROL, NOINVERT
+    "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
 END
 
 

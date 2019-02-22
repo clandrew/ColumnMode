@@ -348,12 +348,14 @@ void SetTargetToBackBuffer()
 static void DisableTextSelectionRectangle(HWND hwnd)
 {
 	DisableMenuItem(hwnd, ID_EDIT_COPY);
+	DisableMenuItem(hwnd, ID_EDIT_CUT);
 	g_hasTextSelectionRectangle = false;
 }
 
 static void EnableTextSelectionRectangle(HWND hwnd)
 {
 	EnableMenuItem(hwnd, ID_EDIT_COPY);
+	EnableMenuItem(hwnd, ID_EDIT_CUT);
 	g_hasTextSelectionRectangle = true;
 }
 
@@ -1216,7 +1218,7 @@ void OnUndo(HWND hwnd)
 		DisableMenuItem(hwnd, ID_EDIT_UNDO);
 }
 
-void OnCopy(HWND hwnd)
+void CopySelectionToClipboard()
 {
 	assert(g_hasTextSelectionRectangle);
 
@@ -1243,6 +1245,20 @@ void OnCopy(HWND hwnd)
 	EmptyClipboard();
 	SetClipboardData(CF_UNICODETEXT, hMem);
 	CloseClipboard();
+}
+
+void OnCut(HWND hwnd)
+{
+	CopySelectionToClipboard();
+
+	DeleteBlock(hwnd);
+
+	RecreateTextLayout();
+}
+
+void OnCopy(HWND hwnd)
+{
+	CopySelectionToClipboard();
 }
 
 void OnPaste(HWND hwnd)

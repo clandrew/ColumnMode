@@ -24,6 +24,7 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam);
 void OnOpen(HWND hwnd);
 void OnSave();
 void OnUndo(HWND hwnd);
+void OnCut(HWND hwnd);
 void OnCopy(HWND hwnd);
 void OnPaste(HWND hwnd);
 
