@@ -7,6 +7,18 @@ const float g_fontSize = 12.0f;
 bool g_isFileLoaded;
 std::wstring g_fileName;
 
+ComPtr<IDXGISwapChain> g_swapChain;
+ComPtr<ID2D1Factory1> g_d2dFactory;
+ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
+ComPtr<ID2D1SolidColorBrush> g_redBrush;
+ComPtr<ID2D1SolidColorBrush> g_blackBrush;
+ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
+ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
+ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
+ComPtr<IDWriteFactory> g_dwriteFactory;
+ComPtr<IDWriteTextFormat> g_textFormat;
+ComPtr<IDWriteTextLayout> g_textLayout;
+
 struct Drag
 {
 	D2D1_POINT_2F Location;
@@ -14,6 +26,86 @@ struct Drag
 	BOOL IsTrailing;
 	DWRITE_HIT_TEST_METRICS HitTest;
 };
+
+class LayoutInfo
+{
+public:
+
+	D2D1_RECT_F GetLayoutRectangleInScreenSpace() const
+	{
+		return m_layoutRectangleInScreenSpace;
+	}
+
+	D2D1_RECT_F GetLayoutRectangleInScreenSpaceLockedToPixelCenters() const
+	{
+		return m_layoutRectangleInScreenSpaceLockedToPixelCenters;
+	}
+
+	int GetLayoutWidth() const
+	{
+		return static_cast<int>(m_layoutMetrics.width);
+	}
+
+	int GetLayoutHeight() const
+	{
+		return static_cast<int>(m_layoutMetrics.height);
+	}
+
+	D2D1_POINT_2F GetPosition() const
+	{
+		return m_layoutPosition;
+	}
+
+	// Setters
+
+	void RefreshLayoutMetrics()
+	{
+		VerifyHR(g_textLayout->GetMetrics(&m_layoutMetrics));
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
+	void SetPosition(D2D1_POINT_2F const& pt)
+	{
+		m_layoutPosition = pt;
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
+	void AdjustPositionX(float amount)
+	{
+		m_layoutPosition.x += amount;
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
+	void AdjustPositionY(float amount)
+	{
+		m_layoutPosition.x += amount;
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
+private:
+
+	void RefreshLayoutRectangleInScreenSpace()
+	{
+		m_layoutRectangleInScreenSpace = D2D1::RectF(
+				m_layoutPosition.x + m_layoutMetrics.left,
+				m_layoutPosition.y + m_layoutMetrics.top,
+				m_layoutPosition.x + m_layoutMetrics.left + m_layoutMetrics.width,
+				m_layoutPosition.y + m_layoutMetrics.top + m_layoutMetrics.height);
+
+		m_layoutRectangleInScreenSpaceLockedToPixelCenters = D2D1::RectF(
+			floor(m_layoutRectangleInScreenSpace.left) + 0.5f,
+			floor(m_layoutRectangleInScreenSpace.top) + 0.5f,
+			floor(m_layoutRectangleInScreenSpace.right) + 0.5f,
+			floor(m_layoutRectangleInScreenSpace.bottom) + 0.5f);
+	}
+
+	DWRITE_TEXT_METRICS m_layoutMetrics;
+	D2D1_POINT_2F m_layoutPosition;
+	D2D1_RECT_F m_layoutRectangleInScreenSpace;
+	D2D1_RECT_F m_layoutRectangleInScreenSpaceLockedToPixelCenters;
+};
+
+LayoutInfo g_layoutInfo;
 
 struct Action
 {
@@ -59,19 +151,6 @@ struct KeyOutput
 };
 KeyOutput g_keyOutput[255];
 
-ComPtr<IDXGISwapChain> g_swapChain;
-ComPtr<ID2D1Factory1> g_d2dFactory;
-ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
-ComPtr<ID2D1SolidColorBrush> g_redBrush;
-ComPtr<ID2D1SolidColorBrush> g_blackBrush;
-ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
-ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
-ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
-ComPtr<IDWriteFactory> g_dwriteFactory;
-ComPtr<IDWriteTextFormat> g_textFormat;
-ComPtr<IDWriteTextLayout> g_textLayout;
-DWRITE_TEXT_METRICS g_layoutMetrics;
-
 UINT g_marchingAntsIndex;
 std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
@@ -95,7 +174,6 @@ std::wstring g_allText;
 std::vector<int> g_textLineStarts;
 int g_maxLineLength = 0;
 
-D2D1_POINT_2F g_layoutPosition;
 int g_verticalScrollLimit = 0;
 
 void VerifyHR(HRESULT hr)
@@ -232,7 +310,7 @@ static void RecreateTextLayout()
 {
 	VerifyHR(g_dwriteFactory->CreateTextLayout(g_allText.data(), static_cast<UINT32>(g_allText.size()), g_textFormat.Get(), 0, 0, &g_textLayout));
 
-	VerifyHR(g_textLayout->GetMetrics(&g_layoutMetrics));
+	g_layoutInfo.RefreshLayoutMetrics();
 }
 
 static void SetCaretCharacterIndex(UINT32 newCharacterIndex)
@@ -250,7 +328,7 @@ static void SetScrollPositions(HWND hwnd)
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
 		scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL;
 		scrollInfo.nMin = 0;
-		scrollInfo.nMax = static_cast<int>(g_layoutMetrics.width);
+		scrollInfo.nMax = g_layoutInfo.GetLayoutWidth();
 		scrollInfo.nPage = static_cast<int>(targetSize.width);
 		SetScrollInfo(hwnd, SB_HORZ, &scrollInfo, TRUE);
 	}
@@ -259,7 +337,7 @@ static void SetScrollPositions(HWND hwnd)
 		scrollInfo.cbSize = sizeof(SCROLLINFO);
 		scrollInfo.fMask = SIF_RANGE | SIF_PAGE | SIF_DISABLENOSCROLL;
 		scrollInfo.nMin = 0;
-		scrollInfo.nMax = static_cast<int>(g_layoutMetrics.height);
+		scrollInfo.nMax = g_layoutInfo.GetLayoutHeight();
 		scrollInfo.nPage = static_cast<int>(targetSize.height);
 		SetScrollInfo(hwnd, SB_VERT, &scrollInfo, TRUE);
 
@@ -284,7 +362,7 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 	g_hasTextSelectionRectangle = false;
 	g_caretCharacterIndex = 0;
 	g_marchingAntsIndex = 0;
-	g_layoutPosition = D2D1::Point2F(20, 20);
+	g_layoutInfo.SetPosition(D2D1::Point2F(20, 20));
 	g_fileName = fileName;
 
 	std::wifstream f(g_fileName);
@@ -497,24 +575,9 @@ void InitGraphics(HWND hwnd)
 	DisableMenuItem(hwnd, ID_EDIT_DELETE);
 }
 
-D2D1_RECT_F GetLayoutRectangleInScreenSpace()
-{
-	return D2D1::RectF(
-		g_layoutPosition.x + g_layoutMetrics.left,
-		g_layoutPosition.y + g_layoutMetrics.top,
-		g_layoutPosition.x + g_layoutMetrics.left + g_layoutMetrics.width,
-		g_layoutPosition.y + g_layoutMetrics.top + g_layoutMetrics.height);
-}
-
 void DrawDocument()
 {
-	D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
-
-	// Lock layout rectangle edges to pixel centers
-	layoutRectangleInScreenSpace.left = floor(layoutRectangleInScreenSpace.left) + 0.5f;
-	layoutRectangleInScreenSpace.top = floor(layoutRectangleInScreenSpace.top) + 0.5f;
-	layoutRectangleInScreenSpace.right = ceil(layoutRectangleInScreenSpace.right) - 0.5f;
-	layoutRectangleInScreenSpace.bottom = ceil(layoutRectangleInScreenSpace.bottom) - 0.5f;
+	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpaceLockedToPixelCenters();
 
 	// Give the document a background that doesn't tightly hug the content
 	float margin = 16.0f;
@@ -535,17 +598,19 @@ void DrawDocument()
 			layoutRectangleInScreenSpace.right,
 			layoutRectangleInScreenSpace.top + g_caretPosition.y + g_caretMetrics.height), g_yellowBrush.Get());
 	}
+	
+	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 
-	g_hwndRenderTarget->DrawTextLayout(g_layoutPosition, g_textLayout.Get(), g_blackBrush.Get());
+	g_hwndRenderTarget->DrawTextLayout(layoutPosition, g_textLayout.Get(), g_blackBrush.Get());
 
 	// Draw caret
 	if (g_caretBlinkState <= 25)
 	{
 		g_hwndRenderTarget->FillRectangle(D2D1::RectF(
-			g_layoutPosition.x + g_caretPosition.x,
-			g_layoutPosition.y + g_caretPosition.y,
-			g_layoutPosition.x + g_caretPosition.x + g_caretMetrics.width,
-			g_layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
+			layoutPosition.x + g_caretPosition.x,
+			layoutPosition.y + g_caretPosition.y,
+			layoutPosition.x + g_caretPosition.x + g_caretMetrics.width,
+			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
 	}
 
 	if (g_isDragging)
@@ -600,16 +665,17 @@ void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam)
 	g_start.Location.x = static_cast<float>(xPos);
 	g_start.Location.y = static_cast<float>(yPos);
 
-	D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
+	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
 	g_start.Location.x = ClampToRange(g_start.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
 	g_start.Location.y = ClampToRange(g_start.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
 
 	g_current.Location.x = g_start.Location.x;
 	g_current.Location.y = g_start.Location.y;
-	
+
+	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 	VerifyHR(g_textLayout->HitTestPoint(
-		g_start.Location.x - g_layoutPosition.x, 
-		g_start.Location.y - g_layoutPosition.y, 
+		g_start.Location.x - layoutPosition.x,
+		g_start.Location.y - layoutPosition.y,
 		&g_start.IsTrailing, 
 		&g_start.OverlaysText, 
 		&g_start.HitTest));
@@ -652,13 +718,14 @@ static void UpdateTextSelectionRectangle()
 		g_textSelectionRectangle.top = g_current.HitTest.top;
 		g_textSelectionRectangle.bottom = g_start.HitTest.top + g_start.HitTest.height;
 	}
-	
 
-	g_textSelectionRectangle.left += g_layoutPosition.x;
-	g_textSelectionRectangle.right += g_layoutPosition.x;
+	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 
-	g_textSelectionRectangle.top += g_layoutPosition.y;
-	g_textSelectionRectangle.bottom += g_layoutPosition.y;
+	g_textSelectionRectangle.left += layoutPosition.x;
+	g_textSelectionRectangle.right += layoutPosition.x;
+
+	g_textSelectionRectangle.top += layoutPosition.y;
+	g_textSelectionRectangle.bottom += layoutPosition.y;
 }
 
 static int s_dbgIndex = 0;
@@ -673,13 +740,14 @@ void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
 		g_current.Location.x = static_cast<float>(xPos);
 		g_current.Location.y = static_cast<float>(yPos);
 
-		D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
+		D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
 		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
 		g_current.Location.y = ClampToRange(g_current.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
-		
+
+		D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 		VerifyHR(g_textLayout->HitTestPoint(
-			g_current.Location.x - g_layoutPosition.x,
-			g_current.Location.y - g_layoutPosition.y,
+			g_current.Location.x - layoutPosition.x,
+			g_current.Location.y - layoutPosition.y,
 			&g_current.IsTrailing, 
 			&g_current.OverlaysText, 
 			&g_current.HitTest));
@@ -867,19 +935,19 @@ void TryMoveViewWithKeyboard(WPARAM wParam)
 {
 	if (wParam == 37)
 	{
-		g_layoutPosition.x += 100;
+		g_layoutInfo.AdjustPositionX(100);
 	}
 	else if (wParam == 38)
 	{
-		g_layoutPosition.y += 100;
+		g_layoutInfo.AdjustPositionY(100);
 	}
 	else if (wParam == 39)
 	{
-		g_layoutPosition.x -= 100;
+		g_layoutInfo.AdjustPositionX(-100);
 	}
 	else if (wParam == 40)
 	{
-		g_layoutPosition.y -= 100;
+		g_layoutInfo.AdjustPositionY(100);
 	}
 	UpdateTextSelectionRectangle();
 }
@@ -1066,7 +1134,7 @@ void OnHorizontalScroll(HWND hwnd, WPARAM wParam)
 	if (type != SB_THUMBPOSITION && type != TB_THUMBTRACK)
 		return;
 
-	g_layoutPosition.x = -static_cast<float>(scrollPosition);
+	g_layoutInfo.AdjustPositionX(-static_cast<float>(scrollPosition));
 
 	UpdateTextSelectionRectangle();
 
@@ -1087,7 +1155,7 @@ void OnVerticalScroll(HWND hwnd, WPARAM wParam)
 	if (type != SB_THUMBPOSITION && type != TB_THUMBTRACK)
 		return;
 
-	g_layoutPosition.y = -static_cast<float>(scrollPosition);
+	g_layoutInfo.AdjustPositionY(-static_cast<float>(scrollPosition));
 
 	UpdateTextSelectionRectangle();
 	
@@ -1123,7 +1191,7 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam)
 	if (newScrollAmount > g_verticalScrollLimit)
 		newScrollAmount = g_verticalScrollLimit;
 
-	g_layoutPosition.y = -static_cast<float>(newScrollAmount);
+	g_layoutInfo.AdjustPositionY(-static_cast<float>(newScrollAmount));
 
 	UpdateTextSelectionRectangle();
 
