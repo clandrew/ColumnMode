@@ -497,13 +497,24 @@ void InitGraphics(HWND hwnd)
 	DisableMenuItem(hwnd, ID_EDIT_DELETE);
 }
 
-void DrawDocument()
+D2D1_RECT_F GetLayoutRectangleInScreenSpace()
 {
-	D2D1_RECT_F layoutRectangleInScreenSpace = D2D1::RectF(
-		g_layoutPosition.x + g_layoutMetrics.left - 0.5f,
-		g_layoutPosition.y + g_layoutMetrics.top - 0.5f,
+	return D2D1::RectF(
+		g_layoutPosition.x + g_layoutMetrics.left,
+		g_layoutPosition.y + g_layoutMetrics.top,
 		g_layoutPosition.x + g_layoutMetrics.left + g_layoutMetrics.width,
 		g_layoutPosition.y + g_layoutMetrics.top + g_layoutMetrics.height);
+}
+
+void DrawDocument()
+{
+	D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
+
+	// Lock layout rectangle edges to pixel centers
+	layoutRectangleInScreenSpace.left = floor(layoutRectangleInScreenSpace.left) + 0.5f;
+	layoutRectangleInScreenSpace.top = floor(layoutRectangleInScreenSpace.top) + 0.5f;
+	layoutRectangleInScreenSpace.right = ceil(layoutRectangleInScreenSpace.right) - 0.5f;
+	layoutRectangleInScreenSpace.bottom = ceil(layoutRectangleInScreenSpace.bottom) - 0.5f;
 
 	// Give the document a background that doesn't tightly hug the content
 	float margin = 16.0f;
@@ -573,15 +584,6 @@ float ClampToRange(float value, float min, float max)
 		return max;
 
 	return value;
-}
-
-D2D1_RECT_F GetLayoutRectangleInScreenSpace()
-{
-	return D2D1::RectF(
-		g_layoutPosition.x + g_layoutMetrics.left,
-		g_layoutPosition.y + g_layoutMetrics.top,
-		g_layoutPosition.x + g_layoutMetrics.left + g_layoutMetrics.width,
-		g_layoutPosition.y + g_layoutMetrics.top + g_layoutMetrics.height);
 }
 
 void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam)
@@ -704,7 +706,7 @@ void OnWindowResize(HWND hwnd)
 	g_hwndRenderTarget->SetTarget(nullptr);
 
 	auto windowSize = GetWindowSize(hwnd);
-	g_swapChain->ResizeBuffers(2, windowSize.width, windowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
+	VerifyHR(g_swapChain->ResizeBuffers(2, windowSize.width, windowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
 	
 	SetTargetToBackBuffer();
 	
