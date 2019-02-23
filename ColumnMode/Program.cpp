@@ -267,12 +267,24 @@ static void SetScrollPositions(HWND hwnd)
 	}
 }
 
+static void UpdatePasteEnablement(HWND hwnd)
+{
+	OpenClipboard(0);
+	bool enable = GetClipboardData(CF_UNICODETEXT) != 0;
+	CloseClipboard();
+
+	if (enable)
+		EnableMenuItem(hwnd, ID_EDIT_PASTE);
+	else
+		DisableMenuItem(hwnd, ID_EDIT_PASTE);
+}
+
 void LoadFile(HWND hwnd, wchar_t const* fileName)
 {
 	g_hasTextSelectionRectangle = false;
 	g_caretCharacterIndex = 0;
 	g_marchingAntsIndex = 0;
-	g_layoutPosition = D2D1::Point2F(0, 0);
+	g_layoutPosition = D2D1::Point2F(20, 20);
 	g_fileName = fileName;
 
 	std::wifstream f(g_fileName);
@@ -317,7 +329,11 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 		}
 		g_textLineStarts.push_back(static_cast<int>(g_allText.length()));
 		g_allText.append(lines[i]);
-		g_allText.push_back('\n');
+
+		if (i != static_cast<int>(lines.size()) - 1)
+		{
+			g_allText.push_back('\n');
+		}
 	}
 
 	RecreateTextLayout();
@@ -327,6 +343,9 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 	SetScrollPositions(hwnd);
 
 	g_isFileLoaded = true;
+
+	EnableMenuItem(hwnd, ID_FILE_SAVE);
+	UpdatePasteEnablement(hwnd);
 }
 
 void SetTargetToBackBuffer()
@@ -349,6 +368,7 @@ static void DisableTextSelectionRectangle(HWND hwnd)
 {
 	DisableMenuItem(hwnd, ID_EDIT_COPY);
 	DisableMenuItem(hwnd, ID_EDIT_CUT);
+	DisableMenuItem(hwnd, ID_EDIT_DELETE);
 	g_hasTextSelectionRectangle = false;
 }
 
@@ -356,19 +376,8 @@ static void EnableTextSelectionRectangle(HWND hwnd)
 {
 	EnableMenuItem(hwnd, ID_EDIT_COPY);
 	EnableMenuItem(hwnd, ID_EDIT_CUT);
+	EnableMenuItem(hwnd, ID_EDIT_DELETE);
 	g_hasTextSelectionRectangle = true;
-}
-
-static void UpdatePasteEnablement(HWND hwnd)
-{
-	OpenClipboard(0);
-	bool enable = GetClipboardData(CF_UNICODETEXT) != 0;
-	CloseClipboard();
-
-	if (enable)
-		EnableMenuItem(hwnd, ID_EDIT_PASTE);
-	else
-		DisableMenuItem(hwnd, ID_EDIT_PASTE);
 }
 
 template<typename OrderableType>
@@ -430,7 +439,9 @@ void InitGraphics(HWND hwnd)
 
 	UINT deviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
 
+#ifdef _DEBUG
 	deviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
 
 	VerifyHR(D3D11CreateDeviceAndSwapChain(
 		nullptr, 
@@ -476,11 +487,14 @@ void InitGraphics(HWND hwnd)
 
 	VerifyHR(g_dwriteFactory->CreateTextFormat(L"Courier New", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, g_fontSize, L"en-us", &g_textFormat));
 	VerifyHR(g_textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP));
-	
+
+	DisableMenuItem(hwnd, ID_FILE_SAVE);
 	DisableMenuItem(hwnd, ID_EDIT_UNDO);
+	DisableMenuItem(hwnd, ID_EDIT_CUT);
 	DisableMenuItem(hwnd, ID_EDIT_COPY);
-	
-	UpdatePasteEnablement(hwnd);
+	DisableMenuItem(hwnd, ID_EDIT_PASTE);
+	DisableMenuItem(hwnd, ID_EDIT_CUT);
+	DisableMenuItem(hwnd, ID_EDIT_DELETE);
 }
 
 void DrawDocument()
@@ -491,8 +505,16 @@ void DrawDocument()
 		g_layoutPosition.x + g_layoutMetrics.left + g_layoutMetrics.width,
 		g_layoutPosition.y + g_layoutMetrics.top + g_layoutMetrics.height);
 
-	g_hwndRenderTarget->FillRectangle(layoutRectangleInScreenSpace, g_whiteBrush.Get());
-	g_hwndRenderTarget->DrawRectangle(layoutRectangleInScreenSpace, g_blackBrush.Get());
+	// Give the document a background that doesn't tightly hug the content
+	float margin = 16.0f;
+	D2D1_RECT_F paper = D2D1::RectF(
+		layoutRectangleInScreenSpace.left - margin,
+		layoutRectangleInScreenSpace.top,
+		layoutRectangleInScreenSpace.right,
+		layoutRectangleInScreenSpace.bottom);
+
+	g_hwndRenderTarget->FillRectangle(paper, g_whiteBrush.Get());
+	g_hwndRenderTarget->DrawRectangle(paper, g_blackBrush.Get());
 	
 	// Highlight current line
 	{
@@ -542,19 +564,43 @@ void Draw(HWND hwnd)
 	VerifyHR(g_swapChain->Present(1, 0));
 }
 
-void OnMouseLeftButtonDown(LPARAM lParam)
+float ClampToRange(float value, float min, float max)
+{
+	if (value < min)
+		return min;
+
+	if (value > max)
+		return max;
+
+	return value;
+}
+
+D2D1_RECT_F GetLayoutRectangleInScreenSpace()
+{
+	return D2D1::RectF(
+		g_layoutPosition.x + g_layoutMetrics.left,
+		g_layoutPosition.y + g_layoutMetrics.top,
+		g_layoutPosition.x + g_layoutMetrics.left + g_layoutMetrics.width,
+		g_layoutPosition.y + g_layoutMetrics.top + g_layoutMetrics.height);
+}
+
+void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam)
 {
 	if (!g_isFileLoaded)
 		return;
 
 	g_isDragging = true;
-	g_hasTextSelectionRectangle = false;
+	DisableTextSelectionRectangle(hwnd);
 
 	int xPos = GET_X_LPARAM(lParam);
 	int yPos = GET_Y_LPARAM(lParam);
 
 	g_start.Location.x = static_cast<float>(xPos);
 	g_start.Location.y = static_cast<float>(yPos);
+
+	D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
+	g_start.Location.x = ClampToRange(g_start.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
+	g_start.Location.y = ClampToRange(g_start.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
 
 	g_current.Location.x = g_start.Location.x;
 	g_current.Location.y = g_start.Location.y;
@@ -613,6 +659,8 @@ static void UpdateTextSelectionRectangle()
 	g_textSelectionRectangle.bottom += g_layoutPosition.y;
 }
 
+static int s_dbgIndex = 0;
+
 void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
 {		
 	if (g_isDragging)
@@ -623,9 +671,13 @@ void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
 		g_current.Location.x = static_cast<float>(xPos);
 		g_current.Location.y = static_cast<float>(yPos);
 
+		D2D1_RECT_F layoutRectangleInScreenSpace = GetLayoutRectangleInScreenSpace();
+		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
+		g_current.Location.y = ClampToRange(g_current.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
+		
 		VerifyHR(g_textLayout->HitTestPoint(
-			g_current.Location.x - g_layoutPosition.x, 
-			g_current.Location.y - g_layoutPosition.y, 
+			g_current.Location.x - g_layoutPosition.x,
+			g_current.Location.y - g_layoutPosition.y,
 			&g_current.IsTrailing, 
 			&g_current.OverlaysText, 
 			&g_current.HitTest));
@@ -1048,6 +1100,12 @@ void OnVerticalScroll(HWND hwnd, WPARAM wParam)
 
 void OnMouseWheel(HWND hwnd, WPARAM wParam)
 {
+	if (!g_isFileLoaded)
+		return;
+
+	if (g_verticalScrollLimit < 0)
+		return; // Whole document fits in window
+
 	SCROLLINFO scrollInfo{};
 	scrollInfo.cbSize = sizeof(scrollInfo);
 	scrollInfo.fMask = SIF_POS;
@@ -1245,6 +1303,13 @@ void CopySelectionToClipboard()
 	EmptyClipboard();
 	SetClipboardData(CF_UNICODETEXT, hMem);
 	CloseClipboard();
+}
+
+void OnDelete(HWND hwnd)
+{
+	DeleteBlock(hwnd);
+
+	RecreateTextLayout();
 }
 
 void OnCut(HWND hwnd)

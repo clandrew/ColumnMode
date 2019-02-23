@@ -12,7 +12,7 @@ void OnWindowResize(HWND hwnd);
 
 // Input
 void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam);
-void OnMouseLeftButtonDown(LPARAM lParam);
+void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam);
 void OnMouseLeftButtonUp(HWND hwnd);
 void OnKeyDown(HWND hwnd, WPARAM wParam);
 void OnKeyUp(HWND hwnd, WPARAM wParam);
@@ -24,6 +24,7 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam);
 void OnOpen(HWND hwnd);
 void OnSave();
 void OnUndo(HWND hwnd);
+void OnDelete(HWND hwnd);
 void OnCut(HWND hwnd);
 void OnCopy(HWND hwnd);
 void OnPaste(HWND hwnd);

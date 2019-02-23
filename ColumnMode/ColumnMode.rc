@@ -56,6 +56,7 @@ BEGIN
         MENUITEM "Cut\tCtrl+X",                 ID_EDIT_CUT
         MENUITEM "Copy\tCtrl+C",                ID_EDIT_COPY
         MENUITEM "Paste\tCtrl+V",               ID_EDIT_PASTE
+        MENUITEM "Delete\tDel",                 ID_EDIT_DELETE
     END
     POPUP "&Help"
     BEGIN
@@ -78,6 +79,7 @@ BEGIN
     "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
     "/",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
     "X",            ID_EDIT_CUT,            VIRTKEY, CONTROL, NOINVERT
+    VK_DELETE,      ID_EDIT_DELETE,         VIRTKEY, NOINVERT
 END
 
 
