@@ -19,6 +19,18 @@ ComPtr<IDWriteFactory> g_dwriteFactory;
 ComPtr<IDWriteTextFormat> g_textFormat;
 ComPtr<IDWriteTextLayout> g_textLayout;
 
+void VerifyHR(HRESULT hr)
+{
+	if (FAILED(hr))
+		__debugbreak();
+}
+
+void VerifyBool(BOOL b)
+{
+	if (!b)
+		__debugbreak();
+}
+
 struct Drag
 {
 	D2D1_POINT_2F Location;
@@ -78,7 +90,13 @@ public:
 
 	void AdjustPositionY(float amount)
 	{
-		m_layoutPosition.x += amount;
+		m_layoutPosition.y += amount;
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
+	void SetPositionY(float amount)
+	{
+		m_layoutPosition.y = amount;
 		RefreshLayoutRectangleInScreenSpace();
 	}
 
@@ -89,7 +107,7 @@ private:
 		m_layoutRectangleInScreenSpace = D2D1::RectF(
 				m_layoutPosition.x + m_layoutMetrics.left,
 				m_layoutPosition.y + m_layoutMetrics.top,
-				m_layoutPosition.x + m_layoutMetrics.left + m_layoutMetrics.width,
+				m_layoutPosition.x + m_layoutMetrics.left + m_layoutMetrics.widthIncludingTrailingWhitespace,
 				m_layoutPosition.y + m_layoutMetrics.top + m_layoutMetrics.height);
 
 		m_layoutRectangleInScreenSpaceLockedToPixelCenters = D2D1::RectF(
@@ -175,32 +193,6 @@ std::vector<int> g_textLineStarts;
 int g_maxLineLength = 0;
 
 int g_verticalScrollLimit = 0;
-
-void VerifyHR(HRESULT hr)
-{
-	if (FAILED(hr))
-		__debugbreak();
-}
-
-void VerifyBool(BOOL b)
-{
-	if (!b)
-		__debugbreak();
-}
-
-void VerifyErrno(errno_t e)
-{
-	if (e != 0)
-		__debugbreak();
-}
-
-void VerifyNonZero(UINT_PTR p)
-{
-	if (p == 0)
-		__debugbreak();
-}
-
-
 
 void InitializeKeyOutput()
 {
@@ -347,9 +339,9 @@ static void SetScrollPositions(HWND hwnd)
 
 static void UpdatePasteEnablement(HWND hwnd)
 {
-	OpenClipboard(0);
+	VerifyBool(OpenClipboard(0));
 	bool enable = GetClipboardData(CF_UNICODETEXT) != 0;
-	CloseClipboard();
+	VerifyBool(CloseClipboard());
 
 	if (enable)
 		EnableMenuItem(hwnd, ID_EDIT_PASTE);
@@ -357,22 +349,24 @@ static void UpdatePasteEnablement(HWND hwnd)
 		DisableMenuItem(hwnd, ID_EDIT_PASTE);
 }
 
-void LoadFile(HWND hwnd, wchar_t const* fileName)
+struct LoadOrCreateFileResult
 {
-	g_hasTextSelectionRectangle = false;
-	g_caretCharacterIndex = 0;
-	g_marchingAntsIndex = 0;
-	g_layoutInfo.SetPosition(D2D1::Point2F(20, 20));
-	g_fileName = fileName;
+	int MaxLineLength;
+	std::wstring AllText;
+	std::vector<int> TextLineStarts;
+};
+LoadOrCreateFileResult LoadOrCreateFileContents(wchar_t const* fileName)
+{
+	LoadOrCreateFileResult result{};
 
-	std::wifstream f(g_fileName);
+	std::wifstream f(fileName);
 
 	bool validLength = true;
 
 	std::vector<std::wstring> lines;
 	while (f.good())
 	{
-		if (lines.size() == INT_MAX)
+		if (lines.size() >= INT_MAX)
 		{
 			validLength = false;
 			break;
@@ -380,7 +374,7 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 
 		std::wstring line;
 		std::getline(f, line);
-		if (line.length() > INT_MAX)
+		if (line.length() >= INT_MAX)
 		{
 			validLength = false;
 			break;
@@ -388,31 +382,46 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 
 		lines.push_back(line);
 
-		g_maxLineLength = max(g_maxLineLength, static_cast<int>(line.length()));
+		result.MaxLineLength = max(result.MaxLineLength, static_cast<int>(line.length()));
 	}
 
 	if (!validLength)
 	{
 		MessageBox(nullptr, L"File couldn't be loaded because a line or line count is too high.", L"ColumnMode", MB_OK);
-		return;
+		return result;
 	}
 
-	g_allText = L"";
+	result.AllText = L"";
+	result.TextLineStarts.clear();
 	for (int i = 0; i < static_cast<int>(lines.size()); ++i)
 	{
-		int spaceToAdd = static_cast<int>(g_maxLineLength - lines[i].length());
+		int spaceToAdd = static_cast<int>(result.MaxLineLength - lines[i].length());
 		for (int j = 0; j < spaceToAdd; ++j)
 		{
 			lines[i].push_back(L' ');
 		}
-		g_textLineStarts.push_back(static_cast<int>(g_allText.length()));
-		g_allText.append(lines[i]);
+		result.TextLineStarts.push_back(static_cast<int>(result.AllText.length()));
+		result.AllText.append(lines[i]);
 
 		if (i != static_cast<int>(lines.size()) - 1)
 		{
-			g_allText.push_back('\n');
+			result.AllText.push_back('\n');
 		}
 	}
+
+	return result;
+}
+
+void InitializeDocument(HWND hwnd, LoadOrCreateFileResult const& loadOrCreateFileResult)
+{
+	g_allText = std::move(loadOrCreateFileResult.AllText);
+	g_maxLineLength = std::move(loadOrCreateFileResult.MaxLineLength);
+	g_textLineStarts = std::move(loadOrCreateFileResult.TextLineStarts);
+
+	g_hasTextSelectionRectangle = false;
+	g_caretCharacterIndex = 0;
+	g_marchingAntsIndex = 0;
+	g_layoutInfo.SetPosition(D2D1::Point2F(20, 20));
 
 	RecreateTextLayout();
 
@@ -422,8 +431,55 @@ void LoadFile(HWND hwnd, wchar_t const* fileName)
 
 	g_isFileLoaded = true;
 
-	EnableMenuItem(hwnd, ID_FILE_SAVE);
+	EnableMenuItem(hwnd, ID_FILE_SAVEAS);
 	UpdatePasteEnablement(hwnd);
+}
+
+void SetCurrentFileName(HWND hwnd, wchar_t* fileName)
+{
+	if (fileName)
+	{
+		g_fileName = fileName;
+		EnableMenuItem(hwnd, ID_FILE_REFRESH);
+		EnableMenuItem(hwnd, ID_FILE_SAVE);
+	}
+	else
+	{
+		g_fileName = L"";
+		DisableMenuItem(hwnd, ID_FILE_REFRESH);
+		DisableMenuItem(hwnd, ID_FILE_SAVE);
+	}
+}
+
+void OnNew(HWND hwnd)
+{
+	LoadOrCreateFileResult createFileResult{};
+
+	int defaultRowCount = 40;
+	int defaultColumnCount = 100;
+
+	createFileResult.MaxLineLength = defaultColumnCount;
+
+	std::wstring blankLine;
+	for (int i = 0; i < defaultColumnCount; ++i)
+	{
+		blankLine.push_back(L' ');
+	}
+
+	for (int i = 0; i < defaultRowCount; ++i)
+	{
+		createFileResult.TextLineStarts.push_back(i * (defaultColumnCount + 1));
+		createFileResult.AllText.append(blankLine);
+
+		if (i < defaultRowCount - 1)
+		{
+			createFileResult.AllText.append(L"\n");
+		}
+	}
+
+	SetCurrentFileName(hwnd, nullptr);
+
+	InitializeDocument(hwnd, createFileResult);
 }
 
 void SetTargetToBackBuffer()
@@ -481,8 +537,8 @@ static SignedRect GetTextSelectionRegion()
 	GetRowAndColumnFromCharacterPosition(g_start.HitTest.textPosition, &r.Top, &r.Left);
 	GetRowAndColumnFromCharacterPosition(g_current.HitTest.textPosition, &r.Bottom, &r.Right);
 
-	PutInOrder(&r.Top, &r.Bottom);
 	PutInOrder(&r.Left, &r.Right);
+	PutInOrder(&r.Top, &r.Bottom);
 
 	return r;
 }
@@ -567,6 +623,8 @@ void InitGraphics(HWND hwnd)
 	VerifyHR(g_textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP));
 
 	DisableMenuItem(hwnd, ID_FILE_SAVE);
+	DisableMenuItem(hwnd, ID_FILE_SAVEAS);
+	DisableMenuItem(hwnd, ID_FILE_REFRESH);
 	DisableMenuItem(hwnd, ID_EDIT_UNDO);
 	DisableMenuItem(hwnd, ID_EDIT_CUT);
 	DisableMenuItem(hwnd, ID_EDIT_COPY);
@@ -1019,7 +1077,23 @@ void WriteCharacterAtCaret(wchar_t chr)
 	g_allText[g_caretCharacterIndex] = chr;
 	RecreateTextLayout();
 
-	SetCaretCharacterIndex(g_caretCharacterIndex+1);
+	int caretRow, caretColumn;
+	GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+
+	if (caretColumn < g_maxLineLength-1)
+	{
+		SetCaretCharacterIndex(g_caretCharacterIndex + 1);
+	}
+	else
+	{
+		// Need to move to new line
+		if (caretRow < g_textLineStarts.size() - 1)
+		{
+			caretRow++;
+			caretColumn = 0;
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+		}
+	}
 }
 
 void OnKeyDown(HWND hwnd, WPARAM wParam)
@@ -1191,7 +1265,7 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam)
 	if (newScrollAmount > g_verticalScrollLimit)
 		newScrollAmount = g_verticalScrollLimit;
 
-	g_layoutInfo.AdjustPositionY(-static_cast<float>(newScrollAmount));
+	g_layoutInfo.SetPositionY(-static_cast<float>(newScrollAmount));
 
 	UpdateTextSelectionRectangle();
 
@@ -1234,7 +1308,14 @@ void OnOpen(HWND hwnd)
 
 	if (GetOpenFileName(&ofn) == TRUE)
 	{
-		LoadFile(hwnd, ofn.lpstrFile);
+		SetCurrentFileName(hwnd, ofn.lpstrFile);
+
+		LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(ofn.lpstrFile);
+
+		InitializeDocument(hwnd, loadFileResult);
+
+		EnableMenuItem(hwnd, ID_FILE_REFRESH);
+		EnableMenuItem(hwnd, ID_FILE_SAVE);
 	}
 }
 
@@ -1248,6 +1329,45 @@ void OnSave()
 	}
 
 	MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
+}
+
+void OnSaveAs(HWND hwnd)
+{
+	g_isCtrlDown = false;
+
+	TCHAR documentsPath[MAX_PATH];
+
+	VerifyHR(SHGetFolderPath(NULL,
+		CSIDL_PERSONAL | CSIDL_FLAG_CREATE,
+		NULL,
+		0,
+		documentsPath));
+
+	OPENFILENAME ofn;
+	ZeroMemory(&ofn, sizeof(ofn));
+
+	wchar_t szFile[MAX_PATH];
+	wcscpy_s(szFile, L"Untitled.txt");
+
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = hwnd;
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"All\0*.*\0Text\0*.TXT\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = documentsPath;
+	ofn.lpstrDefExt = L"txt";
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+	
+	if (GetSaveFileName(&ofn) == TRUE)
+	{
+		std::wofstream out(ofn.lpstrFile);
+		out << g_allText;
+
+		SetCurrentFileName(hwnd, ofn.lpstrFile);
+	}
 }
 
 void OnUndo(HWND hwnd)
@@ -1496,6 +1616,13 @@ void OnPaste(HWND hwnd)
 	AddAction(hwnd, a);
 
 	RecreateTextLayout();
+}
+
+void OnRefresh(HWND hwnd)
+{
+	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(g_fileName.c_str());
+
+	InitializeDocument(hwnd, loadFileResult);
 }
 
 void OnClipboardContentsChanged(HWND hwnd)

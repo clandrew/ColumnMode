@@ -1,9 +1,6 @@
 #pragma once
 
-void VerifyHR(HRESULT hr);
 void VerifyBool(BOOL b);
-void VerifyErrno(errno_t e);
-void VerifyNonZero(UINT_PTR p);
 
 void InitGraphics(HWND hwnd);
 void Draw(HWND hwnd);
@@ -21,12 +18,15 @@ void OnVerticalScroll(HWND hwnd, WPARAM wParam);
 void OnMouseWheel(HWND hwnd, WPARAM wParam);
 
 // Menu bar functions
+void OnNew(HWND hwnd);
 void OnOpen(HWND hwnd);
 void OnSave();
+void OnSaveAs(HWND hwnd);
 void OnUndo(HWND hwnd);
 void OnDelete(HWND hwnd);
 void OnCut(HWND hwnd);
 void OnCopy(HWND hwnd);
 void OnPaste(HWND hwnd);
+void OnRefresh(HWND hwnd);
 
 void OnClipboardContentsChanged(HWND hwnd);
