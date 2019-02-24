@@ -94,6 +94,12 @@ public:
 		RefreshLayoutRectangleInScreenSpace();
 	}
 
+	void SetPositionX(float amount)
+	{
+		m_layoutPosition.x = amount;
+		RefreshLayoutRectangleInScreenSpace();
+	}
+
 	void SetPositionY(float amount)
 	{
 		m_layoutPosition.y = amount;
@@ -1208,7 +1214,7 @@ void OnHorizontalScroll(HWND hwnd, WPARAM wParam)
 	if (type != SB_THUMBPOSITION && type != TB_THUMBTRACK)
 		return;
 
-	g_layoutInfo.AdjustPositionX(-static_cast<float>(scrollPosition));
+	g_layoutInfo.SetPositionX(-static_cast<float>(scrollPosition));
 
 	UpdateTextSelectionRectangle();
 
@@ -1229,7 +1235,7 @@ void OnVerticalScroll(HWND hwnd, WPARAM wParam)
 	if (type != SB_THUMBPOSITION && type != TB_THUMBTRACK)
 		return;
 
-	g_layoutInfo.AdjustPositionY(-static_cast<float>(scrollPosition));
+	g_layoutInfo.SetPositionY(-static_cast<float>(scrollPosition));
 
 	UpdateTextSelectionRectangle();
 	
