@@ -5,6 +5,7 @@
 const float g_fontSize = 12.0f;
 
 bool g_isFileLoaded;
+std::wstring g_fileFullPath;
 std::wstring g_fileName;
 
 ComPtr<IDXGISwapChain> g_swapChain;
@@ -451,18 +452,29 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 
 void SetCurrentFileName(WindowHandles windowHandles, wchar_t* fileName)
 {
+	std::wstring windowTitle = L"ColumnMode - ";
 	if (fileName)
 	{
-		g_fileName = fileName;
+		g_fileFullPath = fileName;
+
+		size_t delimiterIndex = g_fileFullPath.find_last_of(L'\\');
+		g_fileName = g_fileFullPath.substr(delimiterIndex + 1);
+
 		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 		EnableMenuItem(windowHandles, ID_FILE_SAVE);
+
+		windowTitle.append(g_fileName);
 	}
 	else
 	{
-		g_fileName = L"";
+		g_fileFullPath = L"";
 		DisableMenuItem(windowHandles, ID_FILE_REFRESH);
 		DisableMenuItem(windowHandles, ID_FILE_SAVE);
+
+		windowTitle.append(L"(New Document)");
 	}
+
+	SetWindowText(windowHandles.TopLevel, windowTitle.c_str());
 }
 
 void OnNew(WindowHandles windowHandles)
@@ -1349,7 +1361,7 @@ void OnSave()
 	g_isCtrlDown = false;
 
 	{
-		std::wofstream out(g_fileName);
+		std::wofstream out(g_fileFullPath);
 		out << g_allText;
 	}
 
@@ -1645,7 +1657,7 @@ void OnPaste(WindowHandles windowHandles)
 
 void OnRefresh(WindowHandles windowHandles)
 {
-	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(g_fileName.c_str());
+	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(g_fileFullPath.c_str());
 
 	InitializeDocument(windowHandles, loadFileResult);
 }
