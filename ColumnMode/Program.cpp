@@ -311,10 +311,18 @@ static void RecreateTextLayout()
 	g_layoutInfo.RefreshLayoutMetrics();
 }
 
-static void SetCaretCharacterIndex(UINT32 newCharacterIndex)
+static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabelHwnd)
 {
 	g_caretCharacterIndex = newCharacterIndex;
 	VerifyHR(g_textLayout->HitTestTextPosition(g_caretCharacterIndex, FALSE, &g_caretPosition.x, &g_caretPosition.y, &g_caretMetrics));
+
+	int caretRow, caretColumn;
+	GetRowAndColumnFromCharacterPosition(newCharacterIndex, &caretRow, &caretColumn);
+
+	// Show label of row and column numbers, 1-indexed.
+	std::wstringstream label;
+	label << L"Row: " << (caretRow+1) << "        Col: " << (caretColumn+1);
+	Static_SetText(statusBarLabelHwnd, label.str().c_str());
 }
 
 static void SetScrollPositions(WindowHandles windowHandles)
@@ -431,7 +439,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 
 	RecreateTextLayout();
 
-	SetCaretCharacterIndex(0);
+	SetCaretCharacterIndex(0, windowHandles.StatusBarLabel);
 
 	SetScrollPositions(windowHandles);
 
@@ -646,6 +654,8 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
+	
+	Static_SetText(windowHandles.StatusBarLabel, L"");
 }
 
 void DrawDocument()
@@ -756,7 +766,7 @@ void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 	if (g_start.OverlaysText)
 	{
 		// Move the caret
-		SetCaretCharacterIndex(g_start.HitTest.textPosition);
+		SetCaretCharacterIndex(g_start.HitTest.textPosition, windowHandles.StatusBarLabel);
 	}
 }
 
@@ -837,7 +847,7 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 
 		if (g_current.OverlaysText)
 		{
-			SetCaretCharacterIndex(g_current.HitTest.textPosition);
+			SetCaretCharacterIndex(g_current.HitTest.textPosition, windowHandles.StatusBarLabel);
 		}
 	}
 }
@@ -934,7 +944,7 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		g_start.HitTest.textPosition--;
 		g_current.HitTest.textPosition--;
 
-		SetCaretCharacterIndex(g_caretCharacterIndex - 1);
+		SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
 	}
 	else if (wParam == 38) //  up
 	{
@@ -956,7 +966,7 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		int caretRow, caretColumn;
 		GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
 		caretRow--;
-		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 	}
 	else if (wParam == 39)
 	{
@@ -975,7 +985,7 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		g_start.HitTest.textPosition++;
 		g_current.HitTest.textPosition++;
 
-		SetCaretCharacterIndex(g_caretCharacterIndex + 1);
+		SetCaretCharacterIndex(g_caretCharacterIndex + 1, windowHandles.StatusBarLabel);
 	}
 	else if (wParam == 40) // down
 	{
@@ -997,7 +1007,7 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		int caretRow, caretColumn;
 		GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
 		caretRow++;
-		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 	}
 
 	FinalizeSelectionBoxMovement(windowHandles);
@@ -1039,13 +1049,13 @@ void TryMoveCaretDirectional(WindowHandles windowHandles, WPARAM wParam)
 			{
 				caretRow--;
 				caretColumn = g_maxLineLength - 1;
-				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 			}
 		}
 		else
 		{
 			caretColumn--;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 	else if (wParam == 38) // up
@@ -1054,7 +1064,7 @@ void TryMoveCaretDirectional(WindowHandles windowHandles, WPARAM wParam)
 		else
 		{
 			caretRow--;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 	else if (wParam == 39) // right
@@ -1066,13 +1076,13 @@ void TryMoveCaretDirectional(WindowHandles windowHandles, WPARAM wParam)
 			{
 				caretRow++;
 				caretColumn = 0;
-				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 			}
 		}
 		else
 		{
 			caretColumn++;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 	else if (wParam == 40) // down
@@ -1081,12 +1091,12 @@ void TryMoveCaretDirectional(WindowHandles windowHandles, WPARAM wParam)
 		else
 		{
 			caretRow++;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 }
 
-void WriteCharacterAtCaret(wchar_t chr)
+void WriteCharacterAtCaret(wchar_t chr, WindowHandles windowHandles)
 {
 	// Put a letter at the caret
 	g_allText[g_caretCharacterIndex] = chr;
@@ -1097,7 +1107,7 @@ void WriteCharacterAtCaret(wchar_t chr)
 
 	if (caretColumn < g_maxLineLength-1)
 	{
-		SetCaretCharacterIndex(g_caretCharacterIndex + 1);
+		SetCaretCharacterIndex(g_caretCharacterIndex + 1, windowHandles.StatusBarLabel);
 	}
 	else
 	{
@@ -1106,7 +1116,7 @@ void WriteCharacterAtCaret(wchar_t chr)
 		{
 			caretRow++;
 			caretColumn = 0;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 }
@@ -1132,7 +1142,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		AddAction(windowHandles, a);
 
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
-		WriteCharacterAtCaret(chr);
+		WriteCharacterAtCaret(chr, windowHandles);
 	}
 	else if (wParam == 8) // Backspace
 	{
@@ -1140,7 +1150,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 
 		if (g_caretCharacterIndex > 0)
 		{
-			SetCaretCharacterIndex(g_caretCharacterIndex - 1);
+			SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
 		}
 
 		Action a;
@@ -1163,7 +1173,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		{
 			caretRow++;
 			caretColumn = 0;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
 	else if (wParam == 16) // Shift key
@@ -1394,7 +1404,7 @@ void OnUndo(WindowHandles windowHandles)
 	{
 		g_allText[top.TextPosition] = top.OverwrittenChars[0][0];
 		RecreateTextLayout();
-		SetCaretCharacterIndex(top.TextPosition);
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
 	else if (top.Type == Action::Backspace)
 	{
@@ -1407,7 +1417,7 @@ void OnUndo(WindowHandles windowHandles)
 		{
 			newTextPosition++;
 		}
-		SetCaretCharacterIndex(newTextPosition);
+		SetCaretCharacterIndex(newTextPosition, windowHandles.StatusBarLabel);
 	}
 	else if (top.Type == Action::PasteToPosition)
 	{
@@ -1427,7 +1437,7 @@ void OnUndo(WindowHandles windowHandles)
 
 		RecreateTextLayout();
 
-		SetCaretCharacterIndex(top.TextPosition);
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
 	else if (top.Type == Action::PasteToBlock)
 	{
@@ -1444,7 +1454,7 @@ void OnUndo(WindowHandles windowHandles)
 
 		RecreateTextLayout();
 
-		SetCaretCharacterIndex(top.TextPosition);
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 
 		g_start = top.DragData[0];
 		g_current = top.DragData[1];
@@ -1467,7 +1477,7 @@ void OnUndo(WindowHandles windowHandles)
 		}
 
 		RecreateTextLayout();
-		SetCaretCharacterIndex(top.TextPosition);
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 
 		g_start = top.DragData[0];
 		g_current = top.DragData[1];
