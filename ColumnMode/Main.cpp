@@ -331,6 +331,12 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			TRUE));
 	}
 	break;
+	case WM_CLOSE:
+	{
+		OnClose(g_windowHandles);
+		return 0; // Indicate the message as handled, so we can control whether DestroyWindow is called.
+	}
+	break;
 	case WM_DESTROY:
 		g_done = true;
 		PostQuitMessage(0);

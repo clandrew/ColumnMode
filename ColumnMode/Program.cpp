@@ -1686,3 +1686,47 @@ void OnClipboardContentsChanged(WindowHandles windowHandles)
 {
 	UpdatePasteEnablement(windowHandles);
 }
+
+void OnClose(WindowHandles windowHandles)
+{
+	if (g_hasUnsavedChanges)
+	{
+		std::wstring dialogText;
+		if (g_fileName.length() > 0)
+		{
+			dialogText.append(L"Save changes to ");
+			dialogText.append(g_fileName);
+		}
+		{
+			dialogText.append(L"Save this document");
+		}
+		dialogText.append(L"?");
+
+		int dialogResult = MessageBox(
+			nullptr,
+			dialogText.c_str(),
+			L"ColumnMode",
+			MB_YESNOCANCEL);
+
+		if (dialogResult == IDCANCEL)
+			return;
+
+		if (dialogResult == IDYES)
+		{
+			if (g_fileName.length() > 0)
+			{
+				OnSave(windowHandles);
+			}
+			else
+			{
+				OnSaveAs(windowHandles);
+			}
+		}
+		else
+		{
+			assert(dialogResult == IDNO);
+		}
+	}
+
+	DestroyWindow(windowHandles.TopLevel);
+}

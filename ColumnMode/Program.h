@@ -13,6 +13,7 @@ void InitGraphics(WindowHandles windowHandles);
 void Draw(WindowHandles windowHandles);
 void Update();
 void OnWindowResize(WindowHandles windowHandles);
+void OnClose(WindowHandles windowHandles);
 
 // Input
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam);
