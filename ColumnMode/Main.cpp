@@ -254,7 +254,7 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			OnNew(g_windowHandles);
 			break;
 		case ID_FILE_SAVE:
-			OnSave();
+			OnSave(g_windowHandles);
 			break;
 		case ID_FILE_SAVEAS:
 			OnSaveAs(g_windowHandles);

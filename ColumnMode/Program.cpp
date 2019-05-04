@@ -7,6 +7,8 @@ const float g_fontSize = 12.0f;
 bool g_isFileLoaded;
 std::wstring g_fileFullPath;
 std::wstring g_fileName;
+std::wstring g_windowTitleFileNamePrefix;
+bool g_hasUnsavedChanges;
 
 ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Factory1> g_d2dFactory;
@@ -450,9 +452,19 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 	UpdatePasteEnablement(windowHandles);
 }
 
-void SetCurrentFileName(WindowHandles windowHandles, wchar_t* fileName)
+void UpdateWindowTitle(WindowHandles windowHandles)
 {
-	std::wstring windowTitle = L"ColumnMode - ";
+	std::wstring windowTitle = g_windowTitleFileNamePrefix;
+
+	if (g_hasUnsavedChanges)
+		windowTitle.append(L" *");
+
+	SetWindowText(windowHandles.TopLevel, windowTitle.c_str());
+}
+
+void SetCurrentFileNameAndUpdateWindowTitle(WindowHandles windowHandles, wchar_t* fileName)
+{
+	g_windowTitleFileNamePrefix = L"ColumnMode - ";
 	if (fileName)
 	{
 		g_fileFullPath = fileName;
@@ -463,7 +475,7 @@ void SetCurrentFileName(WindowHandles windowHandles, wchar_t* fileName)
 		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 		EnableMenuItem(windowHandles, ID_FILE_SAVE);
 
-		windowTitle.append(g_fileName);
+		g_windowTitleFileNamePrefix.append(g_fileName);
 	}
 	else
 	{
@@ -471,10 +483,9 @@ void SetCurrentFileName(WindowHandles windowHandles, wchar_t* fileName)
 		DisableMenuItem(windowHandles, ID_FILE_REFRESH);
 		DisableMenuItem(windowHandles, ID_FILE_SAVE);
 
-		windowTitle.append(L"(New Document)");
+		g_windowTitleFileNamePrefix.append(L"(New Document)");
 	}
-
-	SetWindowText(windowHandles.TopLevel, windowTitle.c_str());
+	UpdateWindowTitle(windowHandles);
 }
 
 void OnNew(WindowHandles windowHandles)
@@ -503,7 +514,7 @@ void OnNew(WindowHandles windowHandles)
 		}
 	}
 
-	SetCurrentFileName(windowHandles, nullptr);
+	SetCurrentFileNameAndUpdateWindowTitle(windowHandles, nullptr);
 
 	InitializeDocument(windowHandles, createFileResult);
 }
@@ -576,6 +587,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
 	g_isShiftDown = false;
+	g_hasUnsavedChanges = false;
 
 	InitializeKeyOutput();
 
@@ -895,6 +907,9 @@ void AddAction(WindowHandles windowHandles, Action const& a)
 		g_undoBuffer.erase(g_undoBuffer.begin());
 	}
 	g_undoBuffer.push_back(a);
+
+	g_hasUnsavedChanges = true;
+	UpdateWindowTitle(windowHandles);
 }
 
 static void DeleteBlock(WindowHandles windowHandles)
@@ -1345,7 +1360,7 @@ void OnOpen(WindowHandles windowHandles)
 
 	if (GetOpenFileName(&ofn) == TRUE)
 	{
-		SetCurrentFileName(windowHandles, ofn.lpstrFile);
+		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
 
 		LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(ofn.lpstrFile);
 
@@ -1356,7 +1371,7 @@ void OnOpen(WindowHandles windowHandles)
 	}
 }
 
-void OnSave()
+void OnSave(WindowHandles windowHandles)
 {
 	g_isCtrlDown = false;
 
@@ -1366,6 +1381,9 @@ void OnSave()
 	}
 
 	MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
+	
+	g_hasUnsavedChanges = false;
+	UpdateWindowTitle(windowHandles);
 }
 
 void OnSaveAs(WindowHandles windowHandles)
@@ -1403,7 +1421,9 @@ void OnSaveAs(WindowHandles windowHandles)
 		std::wofstream out(ofn.lpstrFile);
 		out << g_allText;
 
-		SetCurrentFileName(windowHandles, ofn.lpstrFile);
+		g_hasUnsavedChanges = false;
+
+		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
 	}
 }
 

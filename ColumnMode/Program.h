@@ -27,7 +27,7 @@ void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam);
 // Menu bar functions
 void OnNew(WindowHandles windowHandles);
 void OnOpen(WindowHandles windowHandles);
-void OnSave();
+void OnSave(WindowHandles windowHandles);
 void OnSaveAs(WindowHandles windowHandles);
 void OnUndo(WindowHandles windowHandles);
 void OnDelete(WindowHandles windowHandles);
