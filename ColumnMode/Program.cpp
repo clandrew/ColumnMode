@@ -230,15 +230,15 @@ void InitializeKeyOutput()
 	g_keyOutput[222].Set(L'\'', L'"');
 }
 
-static void EnableMenuItem(HWND hwnd, int id)
+static void EnableMenuItem(WindowHandles windowHandles, int id)
 {
-	HMENU menu = GetMenu(hwnd);
+	HMENU menu = GetMenu(windowHandles.TopLevel);
 	EnableMenuItem(menu, id, MF_ENABLED);
 }
 
-static void DisableMenuItem(HWND hwnd, int id)
+static void DisableMenuItem(WindowHandles windowHandles, int id)
 {
-	HMENU menu = GetMenu(hwnd);
+	HMENU menu = GetMenu(windowHandles.TopLevel);
 	EnableMenuItem(menu, id, MF_DISABLED);
 }
 
@@ -293,7 +293,7 @@ void GetRowAndColumnFromCharacterPosition(UINT32 characterPosition, int* row, in
 	}
 }
 
-D2D1_SIZE_U GetWindowSize(HWND hwnd)
+static D2D1_SIZE_U GetWindowSize(HWND hwnd)
 {
 	RECT clientRect{};
 	VerifyBool(GetClientRect(hwnd, &clientRect));
@@ -317,7 +317,7 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex)
 	VerifyHR(g_textLayout->HitTestTextPosition(g_caretCharacterIndex, FALSE, &g_caretPosition.x, &g_caretPosition.y, &g_caretMetrics));
 }
 
-static void SetScrollPositions(HWND hwnd)
+static void SetScrollPositions(WindowHandles windowHandles)
 {
 	auto targetSize = g_hwndRenderTarget->GetSize();
 
@@ -328,7 +328,7 @@ static void SetScrollPositions(HWND hwnd)
 		scrollInfo.nMin = 0;
 		scrollInfo.nMax = g_layoutInfo.GetLayoutWidth();
 		scrollInfo.nPage = static_cast<int>(targetSize.width);
-		SetScrollInfo(hwnd, SB_HORZ, &scrollInfo, TRUE);
+		SetScrollInfo(windowHandles.Document, SB_HORZ, &scrollInfo, TRUE);
 	}
 	{
 		SCROLLINFO scrollInfo = {};
@@ -337,22 +337,22 @@ static void SetScrollPositions(HWND hwnd)
 		scrollInfo.nMin = 0;
 		scrollInfo.nMax = g_layoutInfo.GetLayoutHeight();
 		scrollInfo.nPage = static_cast<int>(targetSize.height);
-		SetScrollInfo(hwnd, SB_VERT, &scrollInfo, TRUE);
+		SetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo, TRUE);
 
 		g_verticalScrollLimit = scrollInfo.nMax - scrollInfo.nPage;
 	}
 }
 
-static void UpdatePasteEnablement(HWND hwnd)
+static void UpdatePasteEnablement(WindowHandles windowHandles)
 {
 	VerifyBool(OpenClipboard(0));
 	bool enable = GetClipboardData(CF_UNICODETEXT) != 0;
 	VerifyBool(CloseClipboard());
 
 	if (enable)
-		EnableMenuItem(hwnd, ID_EDIT_PASTE);
+		EnableMenuItem(windowHandles, ID_EDIT_PASTE);
 	else
-		DisableMenuItem(hwnd, ID_EDIT_PASTE);
+		DisableMenuItem(windowHandles, ID_EDIT_PASTE);
 }
 
 struct LoadOrCreateFileResult
@@ -418,7 +418,7 @@ LoadOrCreateFileResult LoadOrCreateFileContents(wchar_t const* fileName)
 	return result;
 }
 
-void InitializeDocument(HWND hwnd, LoadOrCreateFileResult const& loadOrCreateFileResult)
+void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult const& loadOrCreateFileResult)
 {
 	g_allText = std::move(loadOrCreateFileResult.AllText);
 	g_maxLineLength = std::move(loadOrCreateFileResult.MaxLineLength);
@@ -433,31 +433,31 @@ void InitializeDocument(HWND hwnd, LoadOrCreateFileResult const& loadOrCreateFil
 
 	SetCaretCharacterIndex(0);
 
-	SetScrollPositions(hwnd);
+	SetScrollPositions(windowHandles);
 
 	g_isFileLoaded = true;
 
-	EnableMenuItem(hwnd, ID_FILE_SAVEAS);
-	UpdatePasteEnablement(hwnd);
+	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
+	UpdatePasteEnablement(windowHandles);
 }
 
-void SetCurrentFileName(HWND hwnd, wchar_t* fileName)
+void SetCurrentFileName(WindowHandles windowHandles, wchar_t* fileName)
 {
 	if (fileName)
 	{
 		g_fileName = fileName;
-		EnableMenuItem(hwnd, ID_FILE_REFRESH);
-		EnableMenuItem(hwnd, ID_FILE_SAVE);
+		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
+		EnableMenuItem(windowHandles, ID_FILE_SAVE);
 	}
 	else
 	{
 		g_fileName = L"";
-		DisableMenuItem(hwnd, ID_FILE_REFRESH);
-		DisableMenuItem(hwnd, ID_FILE_SAVE);
+		DisableMenuItem(windowHandles, ID_FILE_REFRESH);
+		DisableMenuItem(windowHandles, ID_FILE_SAVE);
 	}
 }
 
-void OnNew(HWND hwnd)
+void OnNew(WindowHandles windowHandles)
 {
 	LoadOrCreateFileResult createFileResult{};
 
@@ -483,9 +483,9 @@ void OnNew(HWND hwnd)
 		}
 	}
 
-	SetCurrentFileName(hwnd, nullptr);
+	SetCurrentFileName(windowHandles, nullptr);
 
-	InitializeDocument(hwnd, createFileResult);
+	InitializeDocument(windowHandles, createFileResult);
 }
 
 void SetTargetToBackBuffer()
@@ -504,19 +504,19 @@ void SetTargetToBackBuffer()
 	g_hwndRenderTarget->SetTarget(image.Get());
 }
 
-static void DisableTextSelectionRectangle(HWND hwnd)
+static void DisableTextSelectionRectangle(WindowHandles windowHandles)
 {
-	DisableMenuItem(hwnd, ID_EDIT_COPY);
-	DisableMenuItem(hwnd, ID_EDIT_CUT);
-	DisableMenuItem(hwnd, ID_EDIT_DELETE);
+	DisableMenuItem(windowHandles, ID_EDIT_COPY);
+	DisableMenuItem(windowHandles, ID_EDIT_CUT);
+	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
 	g_hasTextSelectionRectangle = false;
 }
 
-static void EnableTextSelectionRectangle(HWND hwnd)
+static void EnableTextSelectionRectangle(WindowHandles windowHandles)
 {
-	EnableMenuItem(hwnd, ID_EDIT_COPY);
-	EnableMenuItem(hwnd, ID_EDIT_CUT);
-	EnableMenuItem(hwnd, ID_EDIT_DELETE);
+	EnableMenuItem(windowHandles, ID_EDIT_COPY);
+	EnableMenuItem(windowHandles, ID_EDIT_CUT);
+	EnableMenuItem(windowHandles, ID_EDIT_DELETE);
 	g_hasTextSelectionRectangle = true;
 }
 
@@ -549,7 +549,7 @@ static SignedRect GetTextSelectionRegion()
 	return r;
 }
 
-void InitGraphics(HWND hwnd)
+void InitGraphics(WindowHandles windowHandles)
 {
 	g_isFileLoaded = false;
 	g_isDragging = false;
@@ -563,14 +563,14 @@ void InitGraphics(HWND hwnd)
 	factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
 	VerifyHR(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), &factoryOptions, &g_d2dFactory));
 
-	auto windowSize = GetWindowSize(hwnd);
+	auto windowSize = GetWindowSize(windowHandles.Document);
 
 	DXGI_SWAP_CHAIN_DESC swapChainDescription = {};
 	swapChainDescription.BufferCount = 2;
 	swapChainDescription.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
 	swapChainDescription.BufferDesc.Width = windowSize.width;
 	swapChainDescription.BufferDesc.Height = windowSize.height;
-	swapChainDescription.OutputWindow = hwnd;
+	swapChainDescription.OutputWindow = windowHandles.Document;
 	swapChainDescription.Windowed = TRUE;
 	swapChainDescription.SampleDesc.Count = 1;
 	swapChainDescription.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -625,18 +625,27 @@ void InitGraphics(HWND hwnd)
 
 	VerifyHR(DWriteCreateFactory(DWRITE_FACTORY_TYPE_ISOLATED, __uuidof(IDWriteFactory), &g_dwriteFactory));
 
-	VerifyHR(g_dwriteFactory->CreateTextFormat(L"Courier New", nullptr, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, g_fontSize, L"en-us", &g_textFormat));
+	VerifyHR(g_dwriteFactory->CreateTextFormat(
+		L"Courier New", 
+		nullptr, 
+		DWRITE_FONT_WEIGHT_NORMAL, 
+		DWRITE_FONT_STYLE_NORMAL, 
+		DWRITE_FONT_STRETCH_NORMAL, 
+		g_fontSize, 
+		L"en-us", 
+		&g_textFormat));
+
 	VerifyHR(g_textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP));
 
-	DisableMenuItem(hwnd, ID_FILE_SAVE);
-	DisableMenuItem(hwnd, ID_FILE_SAVEAS);
-	DisableMenuItem(hwnd, ID_FILE_REFRESH);
-	DisableMenuItem(hwnd, ID_EDIT_UNDO);
-	DisableMenuItem(hwnd, ID_EDIT_CUT);
-	DisableMenuItem(hwnd, ID_EDIT_COPY);
-	DisableMenuItem(hwnd, ID_EDIT_PASTE);
-	DisableMenuItem(hwnd, ID_EDIT_CUT);
-	DisableMenuItem(hwnd, ID_EDIT_DELETE);
+	DisableMenuItem(windowHandles, ID_FILE_SAVE);
+	DisableMenuItem(windowHandles, ID_FILE_SAVEAS);
+	DisableMenuItem(windowHandles, ID_FILE_REFRESH);
+	DisableMenuItem(windowHandles, ID_EDIT_UNDO);
+	DisableMenuItem(windowHandles, ID_EDIT_CUT);
+	DisableMenuItem(windowHandles, ID_EDIT_COPY);
+	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
+	DisableMenuItem(windowHandles, ID_EDIT_CUT);
+	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
 }
 
 void DrawDocument()
@@ -689,7 +698,7 @@ void DrawDocument()
 	}
 }
 
-void Draw(HWND hwnd)
+void Draw(WindowHandles windowHandles)
 {
 	g_hwndRenderTarget->BeginDraw();
 	g_hwndRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::LightGray));
@@ -715,13 +724,13 @@ float ClampToRange(float value, float min, float max)
 	return value;
 }
 
-void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam)
+void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 {
 	if (!g_isFileLoaded)
 		return;
 
 	g_isDragging = true;
-	DisableTextSelectionRectangle(hwnd);
+	DisableTextSelectionRectangle(windowHandles);
 
 	int xPos = GET_X_LPARAM(lParam);
 	int yPos = GET_Y_LPARAM(lParam);
@@ -751,7 +760,7 @@ void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam)
 	}
 }
 
-void OnMouseLeftButtonUp(HWND hwnd)
+void OnMouseLeftButtonUp(WindowHandles windowHandles)
 {
 	if (!g_isFileLoaded)
 		return;
@@ -794,7 +803,7 @@ static void UpdateTextSelectionRectangle()
 
 static int s_dbgIndex = 0;
 
-void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
+void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 {		
 	if (g_isDragging)
 	{
@@ -818,12 +827,12 @@ void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 		if (g_start.OverlaysText || g_current.OverlaysText)
 		{
-			EnableTextSelectionRectangle(hwnd);
+			EnableTextSelectionRectangle(windowHandles);
 			UpdateTextSelectionRectangle();
 		}
 		else
 		{
-			DisableTextSelectionRectangle(hwnd);
+			DisableTextSelectionRectangle(windowHandles);
 		}
 
 		if (g_current.OverlaysText)
@@ -833,19 +842,19 @@ void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam)
 	}
 }
 
-void OnWindowResize(HWND hwnd)
+void OnWindowResize(WindowHandles windowHandles)
 {
 	g_hwndRenderTarget->SetTarget(nullptr);
 
-	auto windowSize = GetWindowSize(hwnd);
+	auto windowSize = GetWindowSize(windowHandles.Document);
 	VerifyHR(g_swapChain->ResizeBuffers(2, windowSize.width, windowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
 	
 	SetTargetToBackBuffer();
 	
-	SetScrollPositions(hwnd);
+	SetScrollPositions(windowHandles);
 }
 
-static void FinalizeSelectionBoxMovement(HWND hwnd)
+static void FinalizeSelectionBoxMovement(WindowHandles windowHandles)
 {
 	RecreateTextLayout();
 
@@ -855,9 +864,9 @@ static void FinalizeSelectionBoxMovement(HWND hwnd)
 	UpdateTextSelectionRectangle();
 }
 
-void AddAction(HWND hwnd, Action const& a)
+void AddAction(WindowHandles windowHandles, Action const& a)
 {
-	EnableMenuItem(hwnd, ID_EDIT_UNDO);
+	EnableMenuItem(windowHandles, ID_EDIT_UNDO);
 
 	if (g_undoBuffer.size() == 5) // Stack limit
 	{
@@ -866,7 +875,7 @@ void AddAction(HWND hwnd, Action const& a)
 	g_undoBuffer.push_back(a);
 }
 
-static void DeleteBlock(HWND hwnd)
+static void DeleteBlock(WindowHandles windowHandles)
 {
 	SignedRect selection = GetTextSelectionRegion();
 	
@@ -889,7 +898,7 @@ static void DeleteBlock(HWND hwnd)
 	a.TextPosition = g_current.HitTest.textPosition;
 	a.DragData.push_back(g_start);
 	a.DragData.push_back(g_current);
-	AddAction(hwnd, a);
+	AddAction(windowHandles, a);
 
 	for (int y = selection.Top; y <= selection.Bottom; y++)
 	{
@@ -901,7 +910,7 @@ static void DeleteBlock(HWND hwnd)
 
 }
 
-static bool TryMoveSelectedBlock(HWND hwnd, WPARAM wParam)
+static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_hasTextSelectionRectangle)
 		return false;
@@ -991,7 +1000,7 @@ static bool TryMoveSelectedBlock(HWND hwnd, WPARAM wParam)
 		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn);
 	}
 
-	FinalizeSelectionBoxMovement(hwnd);
+	FinalizeSelectionBoxMovement(windowHandles);
 	return true;
 }
 
@@ -1016,7 +1025,7 @@ void TryMoveViewWithKeyboard(WPARAM wParam)
 	UpdateTextSelectionRectangle();
 }
 
-void TryMoveCaretDirectional(HWND hwnd, WPARAM wParam)
+void TryMoveCaretDirectional(WindowHandles windowHandles, WPARAM wParam)
 {
 	int caretRow, caretColumn;
 	GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
@@ -1102,7 +1111,7 @@ void WriteCharacterAtCaret(wchar_t chr)
 	}
 }
 
-void OnKeyDown(HWND hwnd, WPARAM wParam)
+void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_isFileLoaded)
 		return;
@@ -1111,7 +1120,7 @@ void OnKeyDown(HWND hwnd, WPARAM wParam)
 
 	if (g_keyOutput[wParam].Valid)
 	{
-		DisableTextSelectionRectangle(hwnd);
+		DisableTextSelectionRectangle(windowHandles);
 		
 		Action a;
 		a.Type = Action::WriteCharacter;
@@ -1120,14 +1129,14 @@ void OnKeyDown(HWND hwnd, WPARAM wParam)
 		a.OverwrittenChars.push_back(line);
 		a.TextPosition = g_caretCharacterIndex;
 
-		AddAction(hwnd, a);
+		AddAction(windowHandles, a);
 
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
 		WriteCharacterAtCaret(chr);
 	}
 	else if (wParam == 8) // Backspace
 	{
-		DisableTextSelectionRectangle(hwnd);
+		DisableTextSelectionRectangle(windowHandles);
 
 		if (g_caretCharacterIndex > 0)
 		{
@@ -1140,7 +1149,7 @@ void OnKeyDown(HWND hwnd, WPARAM wParam)
 		line.push_back(g_allText[g_caretCharacterIndex]);
 		a.OverwrittenChars.push_back(line);
 		a.TextPosition = g_caretCharacterIndex;
-		AddAction(hwnd, a);
+		AddAction(windowHandles, a);
 
 		g_allText[g_caretCharacterIndex] = L' ';
 		RecreateTextLayout();
@@ -1169,7 +1178,7 @@ void OnKeyDown(HWND hwnd, WPARAM wParam)
 	{
 		if (g_isShiftDown)
 		{
-			TryMoveSelectedBlock(hwnd, wParam);
+			TryMoveSelectedBlock(windowHandles, wParam);
 		}
 		else if (g_isCtrlDown)
 		{
@@ -1177,18 +1186,18 @@ void OnKeyDown(HWND hwnd, WPARAM wParam)
 		}
 		else
 		{
-			TryMoveCaretDirectional(hwnd, wParam);
+			TryMoveCaretDirectional(windowHandles, wParam);
 		}
 	}
 	else if (wParam == 46) // Delete key
 	{
-		DisableTextSelectionRectangle(hwnd);
-		DeleteBlock(hwnd);
+		DisableTextSelectionRectangle(windowHandles);
+		DeleteBlock(windowHandles);
 		RecreateTextLayout();
 	}
 }
 
-void OnKeyUp(HWND hwnd, WPARAM wParam)
+void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (wParam == 16) // Shift key
 	{
@@ -1206,7 +1215,7 @@ void Update()
 	g_caretBlinkState = (g_caretBlinkState + 1) % 50;
 }
 
-void OnHorizontalScroll(HWND hwnd, WPARAM wParam)
+void OnHorizontalScroll(WindowHandles windowHandles, WPARAM wParam)
 {
 	WORD scrollPosition = HIWORD(wParam);
 	WORD type = LOWORD(wParam);
@@ -1222,12 +1231,12 @@ void OnHorizontalScroll(HWND hwnd, WPARAM wParam)
 	scrollInfo.cbSize = sizeof(scrollInfo);
 	scrollInfo.fMask = SIF_POS;
 	scrollInfo.nPos = scrollPosition;
-	SetScrollInfo(hwnd, SB_HORZ, &scrollInfo, TRUE);
+	SetScrollInfo(windowHandles.Document, SB_HORZ, &scrollInfo, TRUE);
 
-	InvalidateRect(hwnd, nullptr, FALSE);
+	InvalidateRect(windowHandles.Document, nullptr, FALSE);
 }
 
-void OnVerticalScroll(HWND hwnd, WPARAM wParam)
+void OnVerticalScroll(WindowHandles windowHandles, WPARAM wParam)
 {
 	WORD scrollPosition = HIWORD(wParam);	
 	WORD type = LOWORD(wParam);
@@ -1243,12 +1252,12 @@ void OnVerticalScroll(HWND hwnd, WPARAM wParam)
 	scrollInfo.cbSize = sizeof(scrollInfo);
 	scrollInfo.fMask = SIF_POS;
 	scrollInfo.nPos = scrollPosition;
-	SetScrollInfo(hwnd, SB_VERT, &scrollInfo, TRUE);
+	SetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo, TRUE);
 
-	InvalidateRect(hwnd, nullptr, FALSE);
+	InvalidateRect(windowHandles.Document, nullptr, FALSE);
 }
 
-void OnMouseWheel(HWND hwnd, WPARAM wParam)
+void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_isFileLoaded)
 		return;
@@ -1259,7 +1268,7 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam)
 	SCROLLINFO scrollInfo{};
 	scrollInfo.cbSize = sizeof(scrollInfo);
 	scrollInfo.fMask = SIF_POS;
-	GetScrollInfo(hwnd, SB_VERT, &scrollInfo);
+	GetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo);
 
 	int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 	int additionalScrollAmount = wheelDelta;
@@ -1276,10 +1285,10 @@ void OnMouseWheel(HWND hwnd, WPARAM wParam)
 	UpdateTextSelectionRectangle();
 
 	scrollInfo.nPos = newScrollAmount;
-	SetScrollInfo(hwnd, SB_VERT, &scrollInfo, TRUE);
+	SetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo, TRUE);
 }
 
-void OnOpen(HWND hwnd)
+void OnOpen(WindowHandles windowHandles)
 {
 	g_isCtrlDown = false;
 
@@ -1296,7 +1305,7 @@ void OnOpen(HWND hwnd)
 
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = hwnd;
+	ofn.hwndOwner = windowHandles.TopLevel;
 	ofn.lpstrFile = szFile;
 
 	// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
@@ -1314,14 +1323,14 @@ void OnOpen(HWND hwnd)
 
 	if (GetOpenFileName(&ofn) == TRUE)
 	{
-		SetCurrentFileName(hwnd, ofn.lpstrFile);
+		SetCurrentFileName(windowHandles, ofn.lpstrFile);
 
 		LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(ofn.lpstrFile);
 
-		InitializeDocument(hwnd, loadFileResult);
+		InitializeDocument(windowHandles, loadFileResult);
 
-		EnableMenuItem(hwnd, ID_FILE_REFRESH);
-		EnableMenuItem(hwnd, ID_FILE_SAVE);
+		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
+		EnableMenuItem(windowHandles, ID_FILE_SAVE);
 	}
 }
 
@@ -1337,7 +1346,7 @@ void OnSave()
 	MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
 }
 
-void OnSaveAs(HWND hwnd)
+void OnSaveAs(WindowHandles windowHandles)
 {
 	g_isCtrlDown = false;
 
@@ -1356,7 +1365,7 @@ void OnSaveAs(HWND hwnd)
 	wcscpy_s(szFile, L"Untitled.txt");
 
 	ofn.lStructSize = sizeof(ofn);
-	ofn.hwndOwner = hwnd;
+	ofn.hwndOwner = windowHandles.TopLevel;
 	ofn.lpstrFile = szFile;
 	ofn.nMaxFile = sizeof(szFile);
 	ofn.lpstrFilter = L"All\0*.*\0Text\0*.TXT\0";
@@ -1372,11 +1381,11 @@ void OnSaveAs(HWND hwnd)
 		std::wofstream out(ofn.lpstrFile);
 		out << g_allText;
 
-		SetCurrentFileName(hwnd, ofn.lpstrFile);
+		SetCurrentFileName(windowHandles, ofn.lpstrFile);
 	}
 }
 
-void OnUndo(HWND hwnd)
+void OnUndo(WindowHandles windowHandles)
 {
 	auto const& top = g_undoBuffer.back();
 	
@@ -1439,7 +1448,7 @@ void OnUndo(HWND hwnd)
 
 		g_start = top.DragData[0];
 		g_current = top.DragData[1];
-		EnableTextSelectionRectangle(hwnd);
+		EnableTextSelectionRectangle(windowHandles);
 		UpdateTextSelectionRectangle();
 	}
 	else
@@ -1462,14 +1471,14 @@ void OnUndo(HWND hwnd)
 
 		g_start = top.DragData[0];
 		g_current = top.DragData[1];
-		EnableTextSelectionRectangle(hwnd);
+		EnableTextSelectionRectangle(windowHandles);
 		UpdateTextSelectionRectangle();
 	}
 
 	g_undoBuffer.pop_back();
 
 	if (g_undoBuffer.size() == 0)
-		DisableMenuItem(hwnd, ID_EDIT_UNDO);
+		DisableMenuItem(windowHandles, ID_EDIT_UNDO);
 }
 
 void CopySelectionToClipboard()
@@ -1501,28 +1510,28 @@ void CopySelectionToClipboard()
 	CloseClipboard();
 }
 
-void OnDelete(HWND hwnd)
+void OnDelete(WindowHandles windowHandles)
 {
-	DeleteBlock(hwnd);
+	DeleteBlock(windowHandles);
 
 	RecreateTextLayout();
 }
 
-void OnCut(HWND hwnd)
+void OnCut(WindowHandles windowHandles)
 {
 	CopySelectionToClipboard();
 
-	DeleteBlock(hwnd);
+	DeleteBlock(windowHandles);
 
 	RecreateTextLayout();
 }
 
-void OnCopy(HWND hwnd)
+void OnCopy(WindowHandles windowHandles)
 {
 	CopySelectionToClipboard();
 }
 
-void OnPaste(HWND hwnd)
+void OnPaste(WindowHandles windowHandles)
 {
 	std::wstring str;
 
@@ -1619,19 +1628,19 @@ void OnPaste(HWND hwnd)
 		}		
 	}
 
-	AddAction(hwnd, a);
+	AddAction(windowHandles, a);
 
 	RecreateTextLayout();
 }
 
-void OnRefresh(HWND hwnd)
+void OnRefresh(WindowHandles windowHandles)
 {
 	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(g_fileName.c_str());
 
-	InitializeDocument(hwnd, loadFileResult);
+	InitializeDocument(windowHandles, loadFileResult);
 }
 
-void OnClipboardContentsChanged(HWND hwnd)
+void OnClipboardContentsChanged(WindowHandles windowHandles)
 {
-	UpdatePasteEnablement(hwnd);
+	UpdatePasteEnablement(windowHandles);
 }

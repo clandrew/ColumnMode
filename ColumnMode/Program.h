@@ -2,31 +2,38 @@
 
 void VerifyBool(BOOL b);
 
-void InitGraphics(HWND hwnd);
-void Draw(HWND hwnd);
+struct WindowHandles
+{
+	HWND TopLevel;
+	HWND Document;
+	HWND StatusBarLabel;
+};
+
+void InitGraphics(WindowHandles windowHandles);
+void Draw(WindowHandles windowHandles);
 void Update();
-void OnWindowResize(HWND hwnd);
+void OnWindowResize(WindowHandles windowHandles);
 
 // Input
-void OnMouseMove(HWND hwnd, WPARAM wParam, LPARAM lParam);
-void OnMouseLeftButtonDown(HWND hwnd, LPARAM lParam);
-void OnMouseLeftButtonUp(HWND hwnd);
-void OnKeyDown(HWND hwnd, WPARAM wParam);
-void OnKeyUp(HWND hwnd, WPARAM wParam);
-void OnHorizontalScroll(HWND hwnd, WPARAM wParam);
-void OnVerticalScroll(HWND hwnd, WPARAM wParam);
-void OnMouseWheel(HWND hwnd, WPARAM wParam);
+void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam);
+void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam);
+void OnMouseLeftButtonUp(WindowHandles windowHandles);
+void OnKeyDown(WindowHandles windowHandles, WPARAM wParam);
+void OnKeyUp(WindowHandles windowHandles, WPARAM wParam);
+void OnHorizontalScroll(WindowHandles windowHandles, WPARAM wParam);
+void OnVerticalScroll(WindowHandles windowHandles, WPARAM wParam);
+void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam);
 
 // Menu bar functions
-void OnNew(HWND hwnd);
-void OnOpen(HWND hwnd);
+void OnNew(WindowHandles windowHandles);
+void OnOpen(WindowHandles windowHandles);
 void OnSave();
-void OnSaveAs(HWND hwnd);
-void OnUndo(HWND hwnd);
-void OnDelete(HWND hwnd);
-void OnCut(HWND hwnd);
-void OnCopy(HWND hwnd);
-void OnPaste(HWND hwnd);
-void OnRefresh(HWND hwnd);
+void OnSaveAs(WindowHandles windowHandles);
+void OnUndo(WindowHandles windowHandles);
+void OnDelete(WindowHandles windowHandles);
+void OnCut(WindowHandles windowHandles);
+void OnCopy(WindowHandles windowHandles);
+void OnPaste(WindowHandles windowHandles);
+void OnRefresh(WindowHandles windowHandles);
 
-void OnClipboardContentsChanged(HWND hwnd);
+void OnClipboardContentsChanged(WindowHandles windowHandles);
