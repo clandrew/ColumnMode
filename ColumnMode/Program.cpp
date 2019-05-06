@@ -1870,24 +1870,34 @@ void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM 
 		assert(dialogResult == IDOK);
 	}
 
+	bool anythingActuallyChanged = false;
+
 	if (newColumnCount != currentColumnCount)
 	{
 		AdjustColumnCount(currentColumnCount, newColumnCount);
+		anythingActuallyChanged = true;
 	}
 
 	if (newLineCount != currentLineCount)
 	{
 		AdjustLineCount(currentLineCount, newLineCount);
+		anythingActuallyChanged = true;
 	}
 
-	RecreateTextLayout();
+	if (anythingActuallyChanged)
+	{
+		RecreateTextLayout();
 
-	SetCaretCharacterIndex(0, windowHandles.StatusBarLabel);
-	g_hasTextSelectionRectangle = false;
+		SetCaretCharacterIndex(0, windowHandles.StatusBarLabel);
+		g_hasTextSelectionRectangle = false;
 
-	SetScrollPositions(windowHandles);
+		SetScrollPositions(windowHandles);
+		g_hasUnsavedChanges = true;
+		UpdateWindowTitle(windowHandles);
+	}
 
 	EndDialog(hDlg, LOWORD(wParam));
+
 }
 
 void OnClose(WindowHandles windowHandles)
