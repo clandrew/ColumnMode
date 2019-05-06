@@ -1909,6 +1909,7 @@ void OnClose(WindowHandles windowHandles)
 			dialogText.append(L"Save changes to ");
 			dialogText.append(g_fileName);
 		}
+		else
 		{
 			dialogText.append(L"Save this document");
 		}
