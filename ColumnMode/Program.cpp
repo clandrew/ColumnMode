@@ -449,6 +449,8 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 	g_isFileLoaded = true;
 
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
+	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
+
 	UpdatePasteEnablement(windowHandles);
 }
 
@@ -678,6 +680,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
+	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
 }
@@ -1685,6 +1688,206 @@ void OnRefresh(WindowHandles windowHandles)
 void OnClipboardContentsChanged(WindowHandles windowHandles)
 {
 	UpdatePasteEnablement(windowHandles);
+}
+
+void OnInitializeDocumentProperties(HWND hDlg)
+{
+	int lineCount = g_textLineStarts.size();
+	int columnCount = g_maxLineLength;
+
+	wchar_t lineCountBuffer[32]{};
+	_itow_s(lineCount, lineCountBuffer, 10);
+
+	wchar_t columnCountBuffer[32]{};
+	_itow_s(columnCount, columnCountBuffer, 10);
+	
+	HWND lineCountDlg = GetDlgItem(hDlg, IDC_LINECOUNT_EDITBOX);
+	Static_SetText(lineCountDlg, lineCountBuffer);
+
+	HWND columnCountDlg = GetDlgItem(hDlg, IDC_COLUMNCOUNT_EDITBOX);
+	Static_SetText(columnCountDlg, columnCountBuffer);
+}
+
+bool GetValidTextBoxInteger(HWND hDlg, int textBoxIdentifier, long int* result)
+{
+	HWND dlgHwnd = GetDlgItem(hDlg, textBoxIdentifier);
+	wchar_t textBuffer[32]{};
+	Static_GetText(dlgHwnd, textBuffer, _countof(textBuffer));
+	wchar_t* bufferEnd;
+	long int newCount = wcstol(textBuffer, &bufferEnd, 10);
+	if (newCount <= 0 || bufferEnd - textBuffer < wcslen(textBuffer))
+	{
+		*result = 0;
+		return false;
+	}
+	*result = newCount;
+	return true;
+}
+
+std::wstring GetPaddingString(int length)
+{
+	std::wstring padding;
+
+	for (int i = 0; i < length; ++i)
+		padding.append(L" ");
+
+	return padding;
+}
+
+std::wstring GetLineFromDelimiters(size_t lastNewline, size_t newlineIndex, size_t lengthLimit)
+{
+	size_t startIndex;
+	size_t count;
+	if (lastNewline == 0)
+	{
+		startIndex = 0;
+		count = newlineIndex;
+	}
+	else
+	{
+		startIndex = lastNewline + 1;
+		count = newlineIndex - lastNewline - 1;
+	}
+
+	if (count > lengthLimit)
+		count = lengthLimit;
+
+	std::wstring line = g_allText.substr(startIndex, count);
+	return line;
+}
+
+void AdjustColumnCount(long int currentColumnCount, int newColumnCount)
+{
+	std::wstring newAllText;
+	int newMaxLineLength;
+	std::vector<int> newTextLineStarts;
+
+	newMaxLineLength = newColumnCount;
+
+	size_t lastNewline = 0;
+
+	int difference = newColumnCount - currentColumnCount;
+	std::wstring padding;
+	if (difference > 0)
+	{
+		padding = GetPaddingString(difference);
+	}
+
+	while (lastNewline != -1 && lastNewline < g_allText.length())
+	{
+		newTextLineStarts.push_back(newAllText.length());
+
+		size_t newlineIndex = g_allText.find(L'\n', lastNewline + 1);
+
+		if (difference < 0)
+		{
+			// Delete right side of line
+			std::wstring clippedLine = GetLineFromDelimiters(lastNewline, newlineIndex, newColumnCount);
+			clippedLine.append(L"\n");
+			newAllText.append(clippedLine);
+		}
+		else
+		{
+			// Append to right side of line
+			assert(difference > 0);
+			assert(newlineIndex > lastNewline + 1);
+
+			std::wstring extendedLine = GetLineFromDelimiters(lastNewline, newlineIndex, INT_MAX);
+			extendedLine.append(padding);
+			extendedLine.append(L"\n");
+			newAllText.append(extendedLine);
+		}
+
+		lastNewline = newlineIndex;
+	}
+	newAllText.pop_back(); // Remove terminating newline
+
+	g_allText = newAllText;
+	g_maxLineLength = newMaxLineLength;
+	g_textLineStarts = newTextLineStarts;
+}
+
+void AdjustLineCount(long int currentLineCount, int newLineCount)
+{
+	if (newLineCount < currentLineCount)
+	{
+		// Trim lines
+		int difference = currentLineCount - newLineCount;
+
+		size_t newlineIndex = g_allText.length();
+		for (int i = 0; i < difference; ++i)
+		{
+			newlineIndex = g_allText.rfind(L'\n', newlineIndex);
+		}
+		g_allText = g_allText.substr(0, newlineIndex);
+		g_textLineStarts.erase(g_textLineStarts.begin() + g_textLineStarts.size() - difference, g_textLineStarts.end());
+	}
+	else
+	{
+		assert(newLineCount > currentLineCount);
+		int difference = newLineCount - currentLineCount;
+		
+		std::wstring blankLine = GetPaddingString(g_maxLineLength);	
+		blankLine.push_back(L'\n');
+
+		g_allText.push_back(L'\n');
+		for (int i = 0; i < difference; ++i)
+		{
+			g_textLineStarts.push_back(g_allText.length());
+			g_allText.append(blankLine);
+		}
+
+		g_allText.pop_back();
+	}
+}
+
+void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam)
+{
+	long int newLineCount;
+	if (!GetValidTextBoxInteger(hDlg, IDC_LINECOUNT_EDITBOX, &newLineCount))
+	{
+		MessageBox(hDlg, L"An invalid line count was specified.", L"ColumnMode", MB_OK);
+		return;
+	}
+
+	long int newColumnCount;
+	if (!GetValidTextBoxInteger(hDlg, IDC_COLUMNCOUNT_EDITBOX, &newColumnCount))
+	{
+		MessageBox(hDlg, L"An invalid column count was specified.", L"ColumnMode", MB_OK);
+		return;
+	}
+
+	long int currentLineCount = g_textLineStarts.size();
+	long int currentColumnCount = g_maxLineLength;
+
+	if (newLineCount < currentLineCount || newColumnCount < currentColumnCount)
+	{
+		int dialogResult = MessageBox(hDlg, L"The specified document size is smaller than the current size.\nSome clipping will occur.", L"ColumnMode", MB_OKCANCEL);
+		if (dialogResult == IDCANCEL)
+		{
+			return;
+		}
+		assert(dialogResult == IDOK);
+	}
+
+	if (newColumnCount != currentColumnCount)
+	{
+		AdjustColumnCount(currentColumnCount, newColumnCount);
+	}
+
+	if (newLineCount != currentLineCount)
+	{
+		AdjustLineCount(currentLineCount, newLineCount);
+	}
+
+	RecreateTextLayout();
+
+	SetCaretCharacterIndex(0, windowHandles.StatusBarLabel);
+	g_hasTextSelectionRectangle = false;
+
+	SetScrollPositions(windowHandles);
+
+	EndDialog(hDlg, LOWORD(wParam));
 }
 
 void OnClose(WindowHandles windowHandles)

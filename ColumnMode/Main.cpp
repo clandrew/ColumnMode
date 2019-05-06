@@ -19,6 +19,7 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    TopLevelWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    DocumentWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    DocumentProperties(HWND, UINT, WPARAM, LPARAM);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -280,6 +281,10 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case ID_FILE_REFRESH:
 			OnRefresh(g_windowHandles);
 			break;
+		case ID_FILE_PROPERTIES:
+			//OnFileProperties(g_windowHandles);
+			DialogBox(hInst, MAKEINTRESOURCE(IDD_DOCUMENTPROPERTIES), hWnd, DocumentProperties);
+			break;
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
@@ -358,6 +363,35 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_COMMAND:
 		if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
+}
+
+// Message handler for document properties dialog.
+INT_PTR CALLBACK DocumentProperties(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+	{
+		OnInitializeDocumentProperties(hDlg);
+
+		return (INT_PTR)TRUE;
+	}
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK)
+		{
+			OnConfirmDocumentProperties(g_windowHandles, hDlg, wParam);
+			return (INT_PTR)TRUE;
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
 		{
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;

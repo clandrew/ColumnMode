@@ -37,4 +37,8 @@ void OnCopy(WindowHandles windowHandles);
 void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
 
+// Document properties dialog
+void OnInitializeDocumentProperties(HWND hDlg);
+void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam);
+
 void OnClipboardContentsChanged(WindowHandles windowHandles);
