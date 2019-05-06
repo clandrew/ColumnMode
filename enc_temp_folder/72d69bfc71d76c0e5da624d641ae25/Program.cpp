@@ -1870,21 +1870,22 @@ void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM 
 		assert(dialogResult == IDOK);
 	}
 
-	bool columnCountChanged = newColumnCount != currentColumnCount;
-	bool lineCountChanged = newLineCount != currentLineCount;
+	bool anythingActuallyChanged = false;
 
-	if (columnCountChanged || lineCountChanged)
+	if (newColumnCount != currentColumnCount)
 	{
-		if (columnCountChanged)
-		{
-			AdjustColumnCount(currentColumnCount, newColumnCount);
-		}
+		AdjustColumnCount(currentColumnCount, newColumnCount);
+		anythingActuallyChanged = true;
+	}
 
-		if (lineCountChanged)
-		{
-			AdjustLineCount(currentLineCount, newLineCount);
-		}
+	if (newLineCount != currentLineCount)
+	{
+		AdjustLineCount(currentLineCount, newLineCount);
+		anythingActuallyChanged = true;
+	}
 
+	if (anythingActuallyChanged)
+	{
 		RecreateTextLayout();
 
 		SetCaretCharacterIndex(0, windowHandles.StatusBarLabel);
