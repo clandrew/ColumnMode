@@ -512,7 +512,7 @@ void OnNew(WindowHandles windowHandles)
 
 		if (i < defaultRowCount - 1)
 		{
-			createFileResult.AllText.append(L"\n");
+			createFileResult.AllText.push_back(L'\n');
 		}
 	}
 
@@ -1692,7 +1692,8 @@ void OnClipboardContentsChanged(WindowHandles windowHandles)
 
 void OnInitializeDocumentProperties(HWND hDlg)
 {
-	int lineCount = g_textLineStarts.size();
+	assert(g_textLineStarts.size() <= INT_MAX);
+	int lineCount = static_cast<int>(g_textLineStarts.size());
 	int columnCount = g_maxLineLength;
 
 	wchar_t lineCountBuffer[32]{};
@@ -1710,14 +1711,25 @@ void OnInitializeDocumentProperties(HWND hDlg)
 
 bool GetValidTextBoxInteger(HWND hDlg, int textBoxIdentifier, long int* result)
 {
+	*result = 0;
+
 	HWND dlgHwnd = GetDlgItem(hDlg, textBoxIdentifier);
 	wchar_t textBuffer[32]{};
 	Static_GetText(dlgHwnd, textBuffer, _countof(textBuffer));
 	wchar_t* bufferEnd;
+
 	long int newCount = wcstol(textBuffer, &bufferEnd, 10);
-	if (newCount <= 0 || bufferEnd - textBuffer < wcslen(textBuffer))
+	if (newCount <= 0)
 	{
-		*result = 0;
+		return false;
+	}
+
+	size_t bufferLength = wcslen(textBuffer);
+	if (bufferLength > INT_MAX)
+		return false;
+
+	if (bufferEnd - textBuffer < static_cast<int>(bufferLength))
+	{
 		return false;
 	}
 	*result = newCount;
@@ -1775,7 +1787,7 @@ void AdjustColumnCount(long int currentColumnCount, int newColumnCount)
 
 	while (lastNewline != -1 && lastNewline < g_allText.length())
 	{
-		newTextLineStarts.push_back(newAllText.length());
+		newTextLineStarts.push_back(static_cast<int>(newAllText.length()));
 
 		size_t newlineIndex = g_allText.find(L'\n', lastNewline + 1);
 
@@ -1783,7 +1795,7 @@ void AdjustColumnCount(long int currentColumnCount, int newColumnCount)
 		{
 			// Delete right side of line
 			std::wstring clippedLine = GetLineFromDelimiters(lastNewline, newlineIndex, newColumnCount);
-			clippedLine.append(L"\n");
+			clippedLine.push_back(L'\n');
 			newAllText.append(clippedLine);
 		}
 		else
@@ -1794,7 +1806,7 @@ void AdjustColumnCount(long int currentColumnCount, int newColumnCount)
 
 			std::wstring extendedLine = GetLineFromDelimiters(lastNewline, newlineIndex, INT_MAX);
 			extendedLine.append(padding);
-			extendedLine.append(L"\n");
+			extendedLine.push_back(L'\n');;
 			newAllText.append(extendedLine);
 		}
 
@@ -1833,7 +1845,7 @@ void AdjustLineCount(long int currentLineCount, int newLineCount)
 		g_allText.push_back(L'\n');
 		for (int i = 0; i < difference; ++i)
 		{
-			g_textLineStarts.push_back(g_allText.length());
+			g_textLineStarts.push_back(static_cast<int>(g_allText.length()));
 			g_allText.append(blankLine);
 		}
 
@@ -1843,22 +1855,22 @@ void AdjustLineCount(long int currentLineCount, int newLineCount)
 
 void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam)
 {
-	long int newLineCount;
+	long newLineCount;
 	if (!GetValidTextBoxInteger(hDlg, IDC_LINECOUNT_EDITBOX, &newLineCount))
 	{
 		MessageBox(hDlg, L"An invalid line count was specified.", L"ColumnMode", MB_OK);
 		return;
 	}
 
-	long int newColumnCount;
+	long newColumnCount;
 	if (!GetValidTextBoxInteger(hDlg, IDC_COLUMNCOUNT_EDITBOX, &newColumnCount))
 	{
 		MessageBox(hDlg, L"An invalid column count was specified.", L"ColumnMode", MB_OK);
 		return;
 	}
 
-	long int currentLineCount = g_textLineStarts.size();
-	long int currentColumnCount = g_maxLineLength;
+	long currentLineCount = static_cast<long>(g_textLineStarts.size());
+	long currentColumnCount = g_maxLineLength;
 
 	if (newLineCount < currentLineCount || newColumnCount < currentColumnCount)
 	{
