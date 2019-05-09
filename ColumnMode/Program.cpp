@@ -1308,7 +1308,7 @@ void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam)
 	SCROLLINFO scrollInfo{};
 	scrollInfo.cbSize = sizeof(scrollInfo);
 	scrollInfo.fMask = SIF_POS;
-	GetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo);
+	VerifyBool(GetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo));
 
 	int wheelDelta = GET_WHEEL_DELTA_WPARAM(wParam);
 	int additionalScrollAmount = wheelDelta;
@@ -1361,7 +1361,7 @@ void OnOpen(WindowHandles windowHandles)
 
 	// Display the Open dialog box. 
 
-	if (GetOpenFileName(&ofn) == TRUE)
+	if (!!GetOpenFileName(&ofn))
 	{
 		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
 
@@ -1419,7 +1419,7 @@ void OnSaveAs(WindowHandles windowHandles)
 	ofn.lpstrDefExt = L"txt";
 	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
 	
-	if (GetSaveFileName(&ofn) == TRUE)
+	if (!!GetSaveFileName(&ofn))
 	{
 		std::wofstream out(ofn.lpstrFile);
 		out << g_allText;
@@ -1547,12 +1547,12 @@ void CopySelectionToClipboard()
 
 	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, bufferSize);
 	memcpy(GlobalLock(hMem), stringData.data(), bufferSize);
-	GlobalUnlock(hMem);
+	VerifyBool(GlobalUnlock(hMem));
 
-	OpenClipboard(0);
-	EmptyClipboard();
+	VerifyBool(OpenClipboard(0));
+	VerifyBool(EmptyClipboard());
 	SetClipboardData(CF_UNICODETEXT, hMem);
-	CloseClipboard();
+	VerifyBool(CloseClipboard());
 }
 
 void OnDelete(WindowHandles windowHandles)
