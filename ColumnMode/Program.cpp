@@ -1547,7 +1547,7 @@ void CopySelectionToClipboard()
 
 	HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, bufferSize);
 	memcpy(GlobalLock(hMem), stringData.data(), bufferSize);
-	VerifyBool(GlobalUnlock(hMem));
+	(void)(GlobalUnlock(hMem)); // Returns lock status, not success/fail
 
 	VerifyBool(OpenClipboard(0));
 	VerifyBool(EmptyClipboard());
