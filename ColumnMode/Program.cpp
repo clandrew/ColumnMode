@@ -1818,7 +1818,9 @@ void AdjustLineCount(long int currentLineCount, int newLineCount)
 		size_t newlineIndex = g_allText.length();
 		for (int i = 0; i < difference; ++i)
 		{
-			newlineIndex = g_allText.rfind(L'\n', newlineIndex);
+			// Don't include the last-found newline itself in our search
+			size_t lastNewline = g_allText.rfind(L'\n', newlineIndex-1);
+			newlineIndex = lastNewline;
 		}
 		g_allText = g_allText.substr(0, newlineIndex);
 		g_textLineStarts.erase(g_textLineStarts.begin() + g_textLineStarts.size() - difference, g_textLineStarts.end());
