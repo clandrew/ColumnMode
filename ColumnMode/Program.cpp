@@ -733,8 +733,10 @@ void OnMouseLeftButtonUp(WindowHandles windowHandles)
 	g_isDragging = false;
 }
 
+// Updates g_textSelectionRectangle based on g_start and g_current.
 static void UpdateTextSelectionRectangle()
 {
+	// g_textSelectionRectangle is kept properly ordered
 	if (g_start.HitTest.left <= g_current.HitTest.left)
 	{
 		g_textSelectionRectangle.left = g_start.HitTest.left;
@@ -779,7 +781,8 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 		g_current.Location.y = static_cast<float>(yPos);
 
 		D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
-		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
+		float dontSelectNewlines = 1;
+		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right - dontSelectNewlines);
 		g_current.Location.y = ClampToRange(g_current.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
 
 		D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
@@ -793,6 +796,7 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 		if (g_isDebugBreaking)
 		{
 			__debugbreak();
+			g_isDebugBreaking = false;
 		}
 
 		if (g_start.OverlaysText || g_current.OverlaysText)
