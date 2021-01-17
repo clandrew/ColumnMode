@@ -42,7 +42,11 @@ struct Action
 		Backspace,
 		DeleteBlock,
 		PasteToPosition,
-		PasteToBlock
+		PasteToBlock,
+		MoveBlockLeft,
+		MoveBlockUp,
+		MoveBlockRight,
+		MoveBlockDown
 	};
 	ActionType Type;
 
@@ -216,11 +220,21 @@ static void RecreateTextLayout()
 
 static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabelHwnd)
 {
-	g_caretCharacterIndex = newCharacterIndex;
-	VerifyHR(g_textLayout->HitTestTextPosition(g_caretCharacterIndex, FALSE, &g_caretPosition.x, &g_caretPosition.y, &g_caretMetrics));
+	float caretPositionX, caretPositionY;
+	DWRITE_HIT_TEST_METRICS caretMetrics;
+	VerifyHR(g_textLayout->HitTestTextPosition(newCharacterIndex, FALSE, &caretPositionX, &caretPositionY, &caretMetrics));
 
 	int caretRow, caretColumn;
 	GetRowAndColumnFromCharacterPosition(newCharacterIndex, &caretRow, &caretColumn);
+
+	if (caretColumn >= g_maxLineLength)
+		return;
+
+	// Commit the caret change
+	g_caretCharacterIndex = newCharacterIndex;
+	g_caretPosition.x = caretPositionX;
+	g_caretPosition.y = caretPositionY;
+	g_caretMetrics = caretMetrics;
 
 	// Show label of row and column numbers, 1-indexed.
 	std::wstringstream label;
@@ -805,7 +819,7 @@ void AddAction(WindowHandles windowHandles, Action const& a)
 {
 	EnableMenuItem(windowHandles, ID_EDIT_UNDO);
 
-	if (g_undoBuffer.size() == 5) // Stack limit
+	if (g_undoBuffer.size() == 10) // Stack limit
 	{
 		g_undoBuffer.erase(g_undoBuffer.begin());
 	}
@@ -857,10 +871,27 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 
 	SignedRect selection = GetTextSelectionRegion();
 
+	// Todo: Fill undo buffer
+
 	if (wParam == 37) //  selection.Left
 	{
 		if (static_cast<int>(selection.Left) <= 0)
 			return false;
+
+		Action a;
+		a.Type = Action::MoveBlockLeft;
+		a.BlockTop = selection.Top;
+		a.BlockLeft = selection.Left;
+		a.BlockBottom = selection.Bottom;
+		std::vector<wchar_t> line;
+		for (int y = selection.Top; y <= selection.Bottom; ++y)
+		{
+			int x = selection.Left - 1;
+			wchar_t chr = TryGetCharacter(y, x);
+			line.push_back(chr);
+		}
+		a.OverwrittenChars.push_back(line);
+		AddAction(windowHandles, a);
 
 		for (int x = selection.Left - 1; x <= selection.Right; ++x)
 		{
@@ -1396,10 +1427,8 @@ void OnUndo(WindowHandles windowHandles)
 		EnableTextSelectionRectangle(windowHandles);
 		UpdateTextSelectionRectangle();
 	}
-	else
+	else if (top.Type == Action::DeleteBlock)
 	{
-		assert(top.Type == Action::DeleteBlock);
-
 		for (int lineIndex = 0; lineIndex < static_cast<int>(top.OverwrittenChars.size()); lineIndex++)
 		{
 			for (int columnIndex = 0; columnIndex < static_cast<int>(top.OverwrittenChars[lineIndex].size()); ++columnIndex)
@@ -1418,6 +1447,14 @@ void OnUndo(WindowHandles windowHandles)
 		g_current = top.DragData[1];
 		EnableTextSelectionRectangle(windowHandles);
 		UpdateTextSelectionRectangle();
+	}
+	else if (top.Type == Action::MoveBlockLeft)
+	{
+		assert(false); // Needs impl
+	}
+	else
+	{
+		assert(false); // Unexpected
 	}
 
 	g_undoBuffer.pop_back();
