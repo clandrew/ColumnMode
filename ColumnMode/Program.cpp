@@ -18,6 +18,7 @@ ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
 ComPtr<ID2D1SolidColorBrush> g_redBrush;
 ComPtr<ID2D1SolidColorBrush> g_blackBrush;
 ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
+ComPtr<ID2D1SolidColorBrush> g_lightGrayBrush;
 ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
 ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
 ComPtr<IDWriteFactory> g_dwriteFactory;
@@ -86,6 +87,8 @@ UINT g_marchingAntsIndex;
 std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
 bool g_isDragging;
+
+bool g_isDebugBreaking;
 
 bool g_isShiftDown;
 bool g_isCtrlDown;
@@ -227,6 +230,8 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 	int caretRow, caretColumn;
 	GetRowAndColumnFromCharacterPosition(newCharacterIndex, &caretRow, &caretColumn);
 
+	// Needed because DirectWrite will let you effectively select the new-lines at the end of each row,
+	// which we don't allow here.
 	if (caretColumn >= g_maxLineLength)
 		return;
 
@@ -557,6 +562,7 @@ void InitGraphics(WindowHandles windowHandles)
 
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &g_redBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &g_blackBrush));
+	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(0.9f, 0.9f, 0.9f), &g_lightGrayBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &g_whiteBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange, 0.15f), &g_yellowBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy, 0.2f), &g_selectionBrush));
@@ -612,6 +618,14 @@ void DrawDocument()
 		layoutRectangleInScreenSpace.bottom);
 
 	g_hwndRenderTarget->FillRectangle(paper, g_whiteBrush.Get());
+
+	D2D1_RECT_F marginArea = D2D1::RectF(
+		layoutRectangleInScreenSpace.left - margin,
+		layoutRectangleInScreenSpace.top,
+		layoutRectangleInScreenSpace.left,
+		layoutRectangleInScreenSpace.bottom);
+	g_hwndRenderTarget->FillRectangle(marginArea, g_lightGrayBrush.Get());
+
 	g_hwndRenderTarget->DrawRectangle(paper, g_blackBrush.Get());
 	
 	// Highlight current line
@@ -775,6 +789,11 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 			&g_current.IsTrailing, 
 			&g_current.OverlaysText, 
 			&g_current.HitTest));
+
+		if (g_isDebugBreaking)
+		{
+			__debugbreak();
+		}
 
 		if (g_start.OverlaysText || g_current.OverlaysText)
 		{
@@ -1177,6 +1196,10 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 	else if (wParam == 17)
 	{
 		g_isCtrlDown = false;
+	}
+	else if (wParam == 19) // Pause
+	{
+		g_isDebugBreaking = !g_isDebugBreaking;
 	}
 }
 
