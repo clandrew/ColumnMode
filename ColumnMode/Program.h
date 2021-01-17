@@ -24,6 +24,7 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam);
 void OnHorizontalScroll(WindowHandles windowHandles, WPARAM wParam);
 void OnVerticalScroll(WindowHandles windowHandles, WPARAM wParam);
 void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam);
+void OnMouseLeaveClientArea();
 
 // Menu bar functions
 void OnNew(WindowHandles windowHandles);

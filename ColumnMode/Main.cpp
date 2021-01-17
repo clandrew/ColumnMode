@@ -212,6 +212,11 @@ LRESULT CALLBACK DocumentWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		OnMouseMove(g_windowHandles, wParam, lParam);
 	}
 	break;
+	case WM_MOUSELEAVE:
+	{
+		OnMouseLeaveClientArea();
+	}
+	break;
 	case WM_SIZE:
 	{
 		OnWindowResize(g_windowHandles);
@@ -282,7 +287,6 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			OnRefresh(g_windowHandles);
 			break;
 		case ID_FILE_PROPERTIES:
-			//OnFileProperties(g_windowHandles);
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_DOCUMENTPROPERTIES), hWnd, DocumentProperties);
 			break;
 		case IDM_ABOUT:

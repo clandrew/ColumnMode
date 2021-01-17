@@ -87,6 +87,7 @@ UINT g_marchingAntsIndex;
 std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
 bool g_isDragging;
+bool g_isTrackingLeaveClientArea;
 
 bool g_isDebugBreaking;
 
@@ -505,6 +506,7 @@ void InitGraphics(WindowHandles windowHandles)
 {
 	g_isFileLoaded = false;
 	g_isDragging = false;
+	g_isTrackingLeaveClientArea = false;
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
 	g_isShiftDown = false;
@@ -772,6 +774,20 @@ static int s_dbgIndex = 0;
 
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 {		
+	if (!g_isFileLoaded)
+		return;
+
+	if (!g_isTrackingLeaveClientArea)
+	{
+		TRACKMOUSEEVENT mouseEventTracking = {};
+		mouseEventTracking.cbSize = sizeof(mouseEventTracking);
+		mouseEventTracking.dwFlags = TME_LEAVE;
+		mouseEventTracking.hwndTrack = windowHandles.Document;
+		TrackMouseEvent(&mouseEventTracking);
+
+		g_isTrackingLeaveClientArea = true;
+	}
+
 	if (g_isDragging)
 	{
 		int xPos = GET_X_LPARAM(lParam);
@@ -814,6 +830,15 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 			SetCaretCharacterIndex(g_current.HitTest.textPosition, windowHandles.StatusBarLabel);
 		}
 	}
+}
+
+void OnMouseLeaveClientArea()
+{
+	if (g_isDragging)
+	{
+		g_isDragging = false;
+	}
+	g_isTrackingLeaveClientArea = false;
 }
 
 void OnWindowResize(WindowHandles windowHandles)
