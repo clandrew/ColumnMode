@@ -37,6 +37,7 @@ void OnCut(WindowHandles windowHandles);
 void OnCopy(WindowHandles windowHandles);
 void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
+void OnPrint(WindowHandles windowHandles);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);

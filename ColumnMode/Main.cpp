@@ -289,6 +289,9 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case ID_FILE_PROPERTIES:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_DOCUMENTPROPERTIES), hWnd, DocumentProperties);
 			break;
+		case ID_FILE_PRINT:
+			OnPrint(g_windowHandles);
+			break;
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
