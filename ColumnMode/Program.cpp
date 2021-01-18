@@ -909,7 +909,25 @@ static void DeleteBlock(WindowHandles windowHandles)
 			TrySetCharacter(y, x, L' ');
 		}
 	}
+}
 
+void AddMoveBlockAction(
+	WindowHandles windowHandles, 
+	SignedRect selection,
+	Action::ActionType actionType,
+	std::vector<wchar_t> overwrittenChars)
+{
+	Action a;
+	a.Type = actionType;
+	a.TextPosition = g_caretCharacterIndex;
+	a.BlockTop = selection.Top;
+	a.BlockLeft = selection.Left;
+	a.BlockBottom = selection.Bottom;
+	a.BlockRight = selection.Right;
+	a.OverwrittenChars.push_back(overwrittenChars);
+	a.DragData.push_back(g_start);
+	a.DragData.push_back(g_current);
+	AddAction(windowHandles, a);
 }
 
 static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
@@ -919,27 +937,22 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 
 	SignedRect selection = GetTextSelectionRegion();
 
-	// Todo: Fill undo buffer
-
 	if (wParam == 37) //  selection.Left
 	{
 		if (static_cast<int>(selection.Left) <= 0)
 			return false;
 
-		Action a;
-		a.Type = Action::MoveBlockLeft;
-		a.BlockTop = selection.Top;
-		a.BlockLeft = selection.Left;
-		a.BlockBottom = selection.Bottom;
-		std::vector<wchar_t> line;
-		for (int y = selection.Top; y <= selection.Bottom; ++y)
+		// Add action to undo buffer
 		{
-			int x = selection.Left - 1;
-			wchar_t chr = TryGetCharacter(y, x);
-			line.push_back(chr);
+			std::vector<wchar_t> overwrittenChars;
+			for (int y = selection.Top; y <= selection.Bottom; ++y)
+			{
+				int x = selection.Left - 1;
+				wchar_t chr = TryGetCharacter(y, x);
+				overwrittenChars.push_back(chr);
+			}
+			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockLeft, overwrittenChars);
 		}
-		a.OverwrittenChars.push_back(line);
-		AddAction(windowHandles, a);
 
 		for (int x = selection.Left - 1; x <= selection.Right; ++x)
 		{
@@ -960,6 +973,18 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		if (selection.Top <= 0)
 			return false;
 
+		// Add action to undo buffer
+		{
+			std::vector<wchar_t> overwrittenChars;
+			for (int x = selection.Left; x <= selection.Right; ++x)
+			{
+				int y = selection.Top - 1;
+				wchar_t chr = TryGetCharacter(y, x);
+				overwrittenChars.push_back(chr);
+			}
+			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockUp, overwrittenChars);
+		}
+
 		for (int y = selection.Top - 1; y <= selection.Bottom; ++y)
 		{
 			for (int x = selection.Left; x <= selection.Right; ++x)
@@ -977,10 +1002,22 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		caretRow--;
 		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 	}
-	else if (wParam == 39)
+	else if (wParam == 39) // right
 	{
 		if (static_cast<int>(selection.Right) >= g_maxLineLength - 1)
 			return false;
+
+		// Add action to undo buffer
+		{
+			std::vector<wchar_t> overwrittenChars;
+			for (int y = selection.Top; y <= selection.Bottom; ++y)
+			{
+				int x = selection.Right + 1;
+				wchar_t chr = TryGetCharacter(y, x);
+				overwrittenChars.push_back(chr);
+			}
+			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockRight, overwrittenChars);
+		}
 
 		for (int x = static_cast<int>(selection.Right); x >= static_cast<int>(selection.Left)-1; --x)
 		{
@@ -1000,6 +1037,18 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 	{
 		if (static_cast<int>(selection.Bottom) >= static_cast<int>(g_textLineStarts.size()) - 1)
 			return false;
+
+		// Add action to undo buffer
+		{
+			std::vector<wchar_t> overwrittenChars;
+			for (int x = selection.Left; x <= selection.Right; ++x)
+			{
+				int y = selection.Bottom + 1;
+				wchar_t chr = TryGetCharacter(y, x);
+				overwrittenChars.push_back(chr);
+			}
+			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockDown, overwrittenChars);
+		}
 
 		for (int y = static_cast<int>(selection.Bottom); y >= static_cast<int>(selection.Top)-1; --y)
 		{
@@ -1502,7 +1551,123 @@ void OnUndo(WindowHandles windowHandles)
 	}
 	else if (top.Type == Action::MoveBlockLeft)
 	{
-		assert(false); // Needs impl
+		// Shift to the right
+		for (int y = top.BlockTop; y <= top.BlockBottom; ++y)
+		{
+			for (int x = top.BlockRight; x >= top.BlockLeft; --x)
+			{
+				wchar_t ch = TryGetCharacter(y, x - 1);
+				TrySetCharacter(y, x, ch);
+			}
+		}
+
+		// Fill in overwritten chars
+		int idx = 0;
+		for (int y = top.BlockTop; y <= top.BlockBottom; ++y)
+		{
+			int x = top.BlockLeft-1;
+			wchar_t ch = top.OverwrittenChars[0][idx];
+			TrySetCharacter(y, x, ch);
+			++idx;
+		}
+
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
+
+		g_start = top.DragData[0];
+		g_current = top.DragData[1];
+		EnableTextSelectionRectangle(windowHandles);
+		UpdateTextSelectionRectangle();
+	}
+	else if (top.Type == Action::MoveBlockUp)
+	{
+		// Shift down
+		for (int x = top.BlockLeft; x <= top.BlockRight; ++x)
+		{
+			for (int y = top.BlockBottom; y >= top.BlockTop; --y)
+			{
+				wchar_t ch = TryGetCharacter(y - 1, x);
+				TrySetCharacter(y, x, ch);
+			}
+		}
+
+		// Fill in overwritten chars
+		int idx = 0;
+		for (int x = top.BlockLeft; x <= top.BlockRight; ++x)
+		{
+			int y = top.BlockTop-1;
+			wchar_t ch = top.OverwrittenChars[0][idx];
+			TrySetCharacter(y, x, ch);
+			++idx;
+		}
+
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
+
+		g_start = top.DragData[0];
+		g_current = top.DragData[1];
+		EnableTextSelectionRectangle(windowHandles);
+		UpdateTextSelectionRectangle();
+	}
+	else if (top.Type == Action::MoveBlockRight)
+	{
+		// Shift to the left
+		for (int y = top.BlockTop; y <= top.BlockBottom; ++y)
+		{
+			for (int x = top.BlockLeft; x <= top.BlockRight; ++x)
+			{
+				wchar_t ch = TryGetCharacter(y, x + 1);
+				TrySetCharacter(y, x, ch);
+			}
+		}
+
+		// Fill in overwritten chars
+		int idx = 0;
+		for (int y = top.BlockTop; y <= top.BlockBottom; ++y)
+		{
+			int x = top.BlockRight + 1;
+			wchar_t ch = top.OverwrittenChars[0][idx];
+			TrySetCharacter(y, x, ch);
+			++idx;
+		}
+
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
+
+		g_start = top.DragData[0];
+		g_current = top.DragData[1];
+		EnableTextSelectionRectangle(windowHandles);
+		UpdateTextSelectionRectangle();
+	}
+	else if (top.Type == Action::MoveBlockDown)
+	{
+		// Shift up
+		for (int x = top.BlockLeft; x <= top.BlockRight; ++x)
+		{
+			for (int y = top.BlockTop; y <= top.BlockBottom; ++y)
+			{
+				wchar_t ch = TryGetCharacter(y + 1, x);
+				TrySetCharacter(y, x, ch);
+			}
+		}
+
+		// Fill in overwritten chars
+		int idx = 0;
+		for (int x = top.BlockLeft; x <= top.BlockRight; ++x)
+		{
+			int y = top.BlockBottom+1;
+			wchar_t ch = top.OverwrittenChars[0][idx];
+			TrySetCharacter(y, x, ch);
+			++idx;
+		}
+
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
+
+		g_start = top.DragData[0];
+		g_current = top.DragData[1];
+		EnableTextSelectionRectangle(windowHandles);
+		UpdateTextSelectionRectangle();
 	}
 	else
 	{
