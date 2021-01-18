@@ -2077,8 +2077,6 @@ void OnPrint(WindowHandles windowHandles)
 	VerifyHR(d2dContextForPrint->EndDraw());
 	VerifyHR(printedWork->Close());
 
-	// Add Direct2D drawing commands encapsulated in a command list.
-	// You can add in more pages by calling this API multiple times.
 	m_printControl->AddPage(printedWork.Get(), D2D1::SizeF(m_pageWidth, m_pageHeight), nullptr);
 
 	// Close the print control to complete a print job.
