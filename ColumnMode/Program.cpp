@@ -845,6 +845,9 @@ void OnMouseLeaveClientArea()
 
 void OnWindowResize(WindowHandles windowHandles)
 {
+	if (!g_hwndRenderTarget)
+		return;
+
 	g_hwndRenderTarget->SetTarget(nullptr);
 
 	auto windowSize = GetWindowSize(windowHandles.Document);

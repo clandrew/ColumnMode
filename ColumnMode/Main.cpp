@@ -168,16 +168,19 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	{
 		return FALSE;
 	}
+	
+	// ShowWindow will start putting messages (e.g., WM_SIZE) through. So it's okay to do this first before initializing graphics,
+	// just make sure everything doesn't hard rely on swap chains being created yet.
+	ShowWindow(g_windowHandles.TopLevel, nCmdShow);
+	ShowWindow(g_windowHandles.Document, SW_SHOW);
+	ShowWindow(g_windowHandles.StatusBarLabel, SW_SHOW);
 
+	// Helpful to ShowWindows before setting up the graphics, since graphics will set up a swap chain sized to the client rect.
+	// Unshown window has zero-size client rect. This saves a swap chain resize.
 	InitGraphics(g_windowHandles);
 
-	ShowWindow(g_windowHandles.TopLevel, nCmdShow);
 	UpdateWindow(g_windowHandles.TopLevel);
-
-	ShowWindow(g_windowHandles.Document, SW_SHOW);
 	UpdateWindow(g_windowHandles.Document);
-
-	ShowWindow(g_windowHandles.StatusBarLabel, SW_SHOW);
 	UpdateWindow(g_windowHandles.StatusBarLabel);
 
 	return TRUE;
