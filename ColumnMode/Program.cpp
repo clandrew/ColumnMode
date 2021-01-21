@@ -318,9 +318,27 @@ LoadOrCreateFileResult LoadOrCreateFileContents(wchar_t const* fileName)
 			break;
 		}
 
-		lines.push_back(line);
+		// Sanitize tabs.
+		std::wstring sanitizedLine;
+		for (size_t i = 0; i < line.length(); ++i)
+		{
+			wchar_t ch = line[i];
+			if (ch == '\t')
+			{
+				sanitizedLine.push_back(' ');
+				sanitizedLine.push_back(' ');
+				sanitizedLine.push_back(' ');
+				sanitizedLine.push_back(' ');
+			}
+			else
+			{
+				sanitizedLine.push_back(ch);
+			}
+		}
 
-		result.MaxLineLength = max(result.MaxLineLength, static_cast<int>(line.length()));
+		lines.push_back(sanitizedLine);
+
+		result.MaxLineLength = max(result.MaxLineLength, static_cast<int>(sanitizedLine.length()));
 	}
 
 	if (!validLength)
