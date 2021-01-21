@@ -51,6 +51,9 @@ BEGIN
         MENUITEM "Save\tCtrl+S",                ID_FILE_SAVE
         MENUITEM "Refresh\tF5",                 ID_FILE_REFRESH
         MENUITEM "Properties...",               ID_FILE_PROPERTIES
+        MENUITEM SEPARATOR
+        MENUITEM "Print...\tCtrl+P",            ID_FILE_PRINT
+        MENUITEM SEPARATOR
         MENUITEM "E&xit",                       IDM_EXIT
     END
     POPUP "Edit"
@@ -86,6 +89,7 @@ BEGIN
     VK_F5,          ID_FILE_REFRESH,        VIRTKEY, NOINVERT
     "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
     "/",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
+    "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
 END
 
 

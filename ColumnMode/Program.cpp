@@ -14,6 +14,7 @@ bool g_hasUnsavedChanges;
 
 ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Factory1> g_d2dFactory;
+ComPtr<ID2D1Device> g_d2dDevice;
 ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
 ComPtr<ID2D1SolidColorBrush> g_redBrush;
 ComPtr<ID2D1SolidColorBrush> g_blackBrush;
@@ -370,6 +371,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
 	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
+	EnableMenuItem(windowHandles, ID_FILE_PRINT);
 
 	UpdatePasteEnablement(windowHandles);
 }
@@ -555,10 +557,9 @@ void InitGraphics(WindowHandles windowHandles)
 	ComPtr<IDXGIDevice> dxgiDevice;
 	VerifyHR(d3dDevice.As(&dxgiDevice));
 
-	ComPtr<ID2D1Device> d2dDevice;
-	VerifyHR(g_d2dFactory->CreateDevice(dxgiDevice.Get(), &d2dDevice));
+	VerifyHR(g_d2dFactory->CreateDevice(dxgiDevice.Get(), &g_d2dDevice));
 
-	VerifyHR(d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &g_hwndRenderTarget));
+	VerifyHR(g_d2dDevice->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &g_hwndRenderTarget));
 
 	SetTargetToBackBuffer();
 
@@ -603,6 +604,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
 	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
+	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
 }
@@ -1842,6 +1844,247 @@ void OnRefresh(WindowHandles windowHandles)
 void OnClipboardContentsChanged(WindowHandles windowHandles)
 {
 	UpdatePasteEnablement(windowHandles);
+}
+
+struct StreamAndHR
+{
+	ComPtr<IStream> Stream;
+	HRESULT HR;
+};
+StreamAndHR GetPrintTicketFromDevmode(
+	_In_ PCTSTR printerName,
+	_In_reads_bytes_(devModesize) PDEVMODE devMode,
+	WORD devModesize)
+{
+	HPTPROVIDER provider = nullptr;
+
+	StreamAndHR result;
+
+	// Allocate stream for print ticket.
+	result.HR = CreateStreamOnHGlobal(nullptr, TRUE, &result.Stream);
+
+	if (SUCCEEDED(result.HR))
+	{
+		result.HR = PTOpenProvider(printerName, 1, &provider);
+	}
+
+	// Get PrintTicket from DEVMODE.
+	if (SUCCEEDED(result.HR))
+	{
+		result.HR = PTConvertDevModeToPrintTicket(provider, devModesize, devMode, kPTJobScope, result.Stream.Get());
+	}
+
+	if (provider)
+	{
+		PTCloseProvider(provider);
+	}
+
+	return result;
+}
+
+void OnPrint(WindowHandles windowHandles)
+{
+	float PAGE_WIDTH_IN_DIPS = 1000;
+	float PAGE_HEIGHT_IN_DIPS = 1000;
+	float m_pageHeight = 1000;
+	float m_pageWidth = 1000;
+	ComPtr<IStream> m_jobPrintTicketStream = {};
+	IPrintDocumentPackageTarget* m_documentTarget = {};
+	ComPtr<IWICImagingFactory2> m_wicFactory = {};
+	ComPtr<ID2D1PrintControl> m_printControl = {};
+	ComPtr<ID2D1DeviceContext> m_d2dContextForPrint;
+
+	HRESULT hr = S_OK;
+	WCHAR messageBuffer[512] = { 0 };
+
+	CoInitialize(NULL);
+
+	hr = CoCreateInstance(
+		CLSID_WICImagingFactory,
+		nullptr,
+		CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&m_wicFactory)
+	);
+
+	// Bring up Print Dialog and receive user print settings.
+	PRINTDLGEX printDialogEx = { 0 };
+	printDialogEx.lStructSize = sizeof(PRINTDLGEX);
+	printDialogEx.Flags = PD_HIDEPRINTTOFILE | PD_NOPAGENUMS | PD_NOSELECTION | PD_NOCURRENTPAGE | PD_USEDEVMODECOPIESANDCOLLATE;
+	printDialogEx.hwndOwner = windowHandles.TopLevel;
+	printDialogEx.nStartPage = START_PAGE_GENERAL;
+
+	HRESULT hrPrintDlgEx = PrintDlgEx(&printDialogEx);
+
+	if (FAILED(hrPrintDlgEx))
+	{
+		std::wstringstream strm;
+		strm << L"Error 0x" << std::hex << hrPrintDlgEx << L"ccured during printer selection and/or setup.";
+
+		MessageBox(windowHandles.TopLevel, messageBuffer, L"Message", MB_OK);
+		hr = hrPrintDlgEx;
+	}
+	else if (printDialogEx.dwResultAction == PD_RESULT_APPLY)
+	{
+		// User clicks the Apply button and later clicks the Cancel button.
+		// For simpicity, this sample skips print settings recording.
+		hr = E_FAIL;
+	}
+	else if (printDialogEx.dwResultAction == PD_RESULT_CANCEL)
+	{
+		// User clicks the Cancel button.
+		hr = E_FAIL;
+		return; // Nothing to do
+	}
+
+	// Retrieve DEVNAMES from print dialog.
+	DEVNAMES* devNames = nullptr;
+	if (SUCCEEDED(hr))
+	{
+		if (printDialogEx.hDevNames != nullptr)
+		{
+			devNames = reinterpret_cast<DEVNAMES*>(GlobalLock(printDialogEx.hDevNames));
+			if (devNames == nullptr)
+			{
+				hr = HRESULT_FROM_WIN32(GetLastError());
+			}
+		}
+		else
+		{
+			hr = E_HANDLE;
+		}
+	}
+
+	// Retrieve user settings from print dialog.
+	DEVMODE* devMode = nullptr;
+	PCWSTR printerName = nullptr;
+	if (SUCCEEDED(hr))
+	{
+		printerName = reinterpret_cast<PCWSTR>(devNames) + devNames->wDeviceOffset;
+
+		if (printDialogEx.hDevMode != nullptr)
+		{
+			devMode = reinterpret_cast<DEVMODE*>(GlobalLock(printDialogEx.hDevMode));   // retrieve DevMode
+
+			if (devMode)
+			{
+				// Must check corresponding flags in devMode->dmFields
+				if ((devMode->dmFields & DM_PAPERLENGTH) && (devMode->dmFields & DM_PAPERWIDTH))
+				{
+					// Convert 1/10 of a millimeter DEVMODE unit to 1/96 of inch D2D unit
+					m_pageHeight = devMode->dmPaperLength / 254.0f * 96.0f;
+					m_pageWidth = devMode->dmPaperWidth / 254.0f * 96.0f;
+				}
+				else
+				{
+					// Use default values if the user does not specify page size.
+					m_pageHeight = PAGE_HEIGHT_IN_DIPS;
+					m_pageWidth = PAGE_WIDTH_IN_DIPS;
+				}
+			}
+			else
+			{
+				hr = HRESULT_FROM_WIN32(GetLastError());
+			}
+		}
+		else
+		{
+			hr = E_HANDLE;
+		}
+	}
+
+	// Convert DEVMODE to a job print ticket stream.
+	if (SUCCEEDED(hr))
+	{
+		StreamAndHR streamAndHR = GetPrintTicketFromDevmode(
+			printerName,
+			devMode,
+			devMode->dmSize + devMode->dmDriverExtra // Size of DEVMODE in bytes, including private driver data.
+		);
+
+		hr = streamAndHR.HR;
+		m_jobPrintTicketStream = streamAndHR.Stream;
+	}
+
+	// Create a factory for document print job.
+	ComPtr<IPrintDocumentPackageTargetFactory> documentTargetFactory;
+	if (SUCCEEDED(hr))
+	{
+		hr = ::CoCreateInstance(
+			__uuidof(PrintDocumentPackageTargetFactory),
+			nullptr,
+			CLSCTX_INPROC_SERVER,
+			IID_PPV_ARGS(&documentTargetFactory)
+		);
+	}
+
+	// Initialize the print subsystem and get a package target.
+	if (SUCCEEDED(hr))
+	{
+		std::wstring jobName = g_fileName;
+
+		hr = documentTargetFactory->CreateDocumentPackageTargetForPrintJob(
+			printerName,
+			jobName.c_str(),
+			nullptr, // job output stream; when nullptr, send to printer
+			m_jobPrintTicketStream.Get(),
+			&m_documentTarget
+		);
+	}
+
+	// Create a new print control linked to the package target.
+	if (SUCCEEDED(hr))
+	{
+		hr = g_d2dDevice->CreatePrintControl(
+			m_wicFactory.Get(),
+			m_documentTarget,
+			nullptr,
+			&m_printControl
+		);
+	}
+
+	ComPtr<ID2D1CommandList> printedWork;
+	VerifyHR(g_hwndRenderTarget->CreateCommandList(&printedWork));
+
+	if (!m_d2dContextForPrint)
+	{
+		hr = g_d2dDevice->CreateDeviceContext(
+			D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+			&m_d2dContextForPrint
+		);
+	}
+	m_d2dContextForPrint->SetTarget(printedWork.Get());
+	m_d2dContextForPrint->BeginDraw();
+	m_d2dContextForPrint->Clear();
+	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_blackBrush.Get());
+	VerifyHR(m_d2dContextForPrint->EndDraw());
+	VerifyHR(printedWork->Close());
+
+	VerifyHR(m_printControl->AddPage(printedWork.Get(), D2D1::SizeF(m_pageWidth, m_pageHeight), nullptr));
+
+	// Close the print control to complete a print job.
+	VerifyHR(m_printControl->Close());
+
+	// Release resources.
+	if (devMode)
+	{
+		GlobalUnlock(printDialogEx.hDevMode);
+		devMode = nullptr;
+	}
+	if (devNames)
+	{
+		GlobalUnlock(printDialogEx.hDevNames);
+		devNames = nullptr;
+	}
+	if (printDialogEx.hDevNames)
+	{
+		GlobalFree(printDialogEx.hDevNames);
+	}
+	if (printDialogEx.hDevMode)
+	{
+		GlobalFree(printDialogEx.hDevMode);
+	}
+
+	VerifyHR(hr);
 }
 
 void OnInitializeDocumentProperties(HWND hDlg)
