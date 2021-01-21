@@ -5,6 +5,7 @@
 #include "LayoutInfo.h"
 
 const float g_fontSize = 12.0f;
+const int g_tabLength = 4;
 
 bool g_isFileLoaded;
 std::wstring g_fileFullPath;
@@ -41,6 +42,7 @@ struct Action
 	enum ActionType
 	{
 		WriteCharacter,
+		WriteTab,
 		Backspace,
 		DeleteBlock,
 		PasteToPosition,
@@ -325,10 +327,10 @@ LoadOrCreateFileResult LoadOrCreateFileContents(wchar_t const* fileName)
 			wchar_t ch = line[i];
 			if (ch == '\t')
 			{
-				sanitizedLine.push_back(' ');
-				sanitizedLine.push_back(' ');
-				sanitizedLine.push_back(' ');
-				sanitizedLine.push_back(' ');
+				for (int i = 0; i < g_tabLength; ++i)
+				{
+					sanitizedLine.push_back(' ');
+				}
 			}
 			else
 			{
@@ -1225,6 +1227,34 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
 		WriteCharacterAtCaret(chr, windowHandles);
 	}
+	else if (wParam == 9) // Tab
+	{
+		DisableTextSelectionRectangle(windowHandles);
+
+		Action a;
+		a.Type = Action::WriteTab;
+
+		std::vector<wchar_t> overwrittenLine;
+		for (int i = 0; i < g_tabLength; ++i)
+		{
+			if (g_caretCharacterIndex + i >= g_allText.length())
+				break;
+
+			if (g_allText[g_caretCharacterIndex + i] == L'\n')
+				break;
+
+			overwrittenLine.push_back(g_allText[g_caretCharacterIndex + i]);
+		}
+		a.OverwrittenChars.push_back(overwrittenLine);
+		a.TextPosition = g_caretCharacterIndex;
+
+		AddAction(windowHandles, a);
+
+		for (int i = 0; i < overwrittenLine.size(); ++i)
+		{
+			WriteCharacterAtCaret(L' ', windowHandles);
+		}
+	}
 	else if (wParam == 8) // Backspace
 	{
 		DisableTextSelectionRectangle(windowHandles);
@@ -1493,6 +1523,17 @@ void OnUndo(WindowHandles windowHandles)
 	if (top.Type == Action::WriteCharacter)
 	{
 		g_allText[top.TextPosition] = top.OverwrittenChars[0][0];
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
+	}
+	else if (top.Type == Action::WriteTab)
+	{
+		for (int i = 0; i < top.OverwrittenChars[0].size(); ++i)
+		{
+			wchar_t ch = top.OverwrittenChars[0][i];
+			g_allText[top.TextPosition + i] = ch;
+		}
+
 		RecreateTextLayout();
 		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
