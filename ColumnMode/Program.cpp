@@ -3,7 +3,6 @@
 #include "Resource.h"
 #include "Verify.h"
 #include "LayoutInfo.h"
-#include "D2DPrintJobChecker.h"
 
 template <class T> void SafeRelease(T** ppT)
 {
@@ -381,6 +380,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
 	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
+	EnableMenuItem(windowHandles, ID_FILE_PRINT);
 
 	UpdatePasteEnablement(windowHandles);
 }
@@ -613,6 +613,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
 	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
+	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
 }
@@ -1944,6 +1945,7 @@ void OnPrint(WindowHandles windowHandles)
 	{
 		// User clicks the Cancel button.
 		hr = E_FAIL;
+		return; // Nothing to do
 	}
 
 	// Retrieve DEVNAMES from print dialog.
@@ -2014,7 +2016,7 @@ void OnPrint(WindowHandles windowHandles)
 	}
 
 	// Create a factory for document print job.
-	IPrintDocumentPackageTargetFactory* documentTargetFactory = nullptr;
+	ComPtr<IPrintDocumentPackageTargetFactory> documentTargetFactory;
 	if (SUCCEEDED(hr))
 	{
 		hr = ::CoCreateInstance(
@@ -2031,11 +2033,11 @@ void OnPrint(WindowHandles windowHandles)
 		std::wstring jobName = g_fileName;
 
 		hr = documentTargetFactory->CreateDocumentPackageTargetForPrintJob(
-			printerName,                                // printer name
-			jobName.c_str(),    // job name
-			nullptr,                                    // job output stream; when nullptr, send to printer
-			m_jobPrintTicketStream.Get(),                     // job print ticket
-			&m_documentTarget                           // result IPrintDocumentPackageTarget object
+			printerName,
+			jobName.c_str(),
+			nullptr, // job output stream; when nullptr, send to printer
+			m_jobPrintTicketStream.Get(),
+			&m_documentTarget
 		);
 	}
 
@@ -2067,10 +2069,10 @@ void OnPrint(WindowHandles windowHandles)
 	VerifyHR(m_d2dContextForPrint->EndDraw());
 	VerifyHR(printedWork->Close());
 
-	m_printControl->AddPage(printedWork.Get(), D2D1::SizeF(m_pageWidth, m_pageHeight), nullptr);
+	VerifyHR(m_printControl->AddPage(printedWork.Get(), D2D1::SizeF(m_pageWidth, m_pageHeight), nullptr));
 
 	// Close the print control to complete a print job.
-	m_printControl->Close();
+	VerifyHR(m_printControl->Close());
 
 	// Release resources.
 	if (devMode)
@@ -2091,8 +2093,6 @@ void OnPrint(WindowHandles windowHandles)
 	{
 		GlobalFree(printDialogEx.hDevMode);
 	}
-
-	SafeRelease(&documentTargetFactory);
 
 	VerifyHR(hr);
 }
