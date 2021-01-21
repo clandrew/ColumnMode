@@ -1899,11 +1899,11 @@ void OnPrint(WindowHandles windowHandles)
 	float PAGE_HEIGHT_IN_DIPS = 1000;
 	float m_pageHeight = 1000;
 	float m_pageWidth = 1000;
-	IStream* m_jobPrintTicketStream = {};
+	ComPtr<IStream> m_jobPrintTicketStream = {};
 	IPrintDocumentPackageTarget* m_documentTarget = {};
-	IWICImagingFactory2* m_wicFactory = {};
-	ID2D1PrintControl* m_printControl = {};
-	D2DPrintJobChecker* m_printJobChecker = {};
+	ComPtr<IWICImagingFactory2> m_wicFactory = {};
+	ComPtr<ID2D1PrintControl> m_printControl = {};
+	ComPtr<ID2D1DeviceContext> m_d2dContextForPrint;
 
 	HRESULT hr = S_OK;
 	WCHAR messageBuffer[512] = { 0 };
@@ -2034,7 +2034,7 @@ void OnPrint(WindowHandles windowHandles)
 			printerName,                                // printer name
 			jobName.c_str(),    // job name
 			nullptr,                                    // job output stream; when nullptr, send to printer
-			m_jobPrintTicketStream,                     // job print ticket
+			m_jobPrintTicketStream.Get(),                     // job print ticket
 			&m_documentTarget                           // result IPrintDocumentPackageTarget object
 		);
 	}
@@ -2043,38 +2043,28 @@ void OnPrint(WindowHandles windowHandles)
 	if (SUCCEEDED(hr))
 	{
 		hr = g_d2dDevice->CreatePrintControl(
-			m_wicFactory,
+			m_wicFactory.Get(),
 			m_documentTarget,
 			nullptr,
 			&m_printControl
 		);
 	}
 
-	// Create and register a print job checker.
-	if (SUCCEEDED(hr))
-	{
-		SafeRelease(&m_printJobChecker);
-		m_printJobChecker = new D2DPrintJobChecker;
-		hr = (m_printJobChecker != nullptr) ? S_OK : E_OUTOFMEMORY;
-	}
-	if (SUCCEEDED(hr))
-	{
-		hr = m_printJobChecker->Initialize(m_documentTarget);
-	}
-
 	ComPtr<ID2D1CommandList> printedWork;
 	VerifyHR(g_hwndRenderTarget->CreateCommandList(&printedWork));
 
-	ID2D1DeviceContext* d2dContextForPrint = nullptr;
-	hr = g_d2dDevice->CreateDeviceContext(
-		D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
-		&d2dContextForPrint
-	);
-	d2dContextForPrint->SetTarget(printedWork.Get());
-	d2dContextForPrint->BeginDraw();
-	d2dContextForPrint->Clear();
-	d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_blackBrush.Get());
-	VerifyHR(d2dContextForPrint->EndDraw());
+	if (!m_d2dContextForPrint)
+	{
+		hr = g_d2dDevice->CreateDeviceContext(
+			D2D1_DEVICE_CONTEXT_OPTIONS_NONE,
+			&m_d2dContextForPrint
+		);
+	}
+	m_d2dContextForPrint->SetTarget(printedWork.Get());
+	m_d2dContextForPrint->BeginDraw();
+	m_d2dContextForPrint->Clear();
+	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_blackBrush.Get());
+	VerifyHR(m_d2dContextForPrint->EndDraw());
 	VerifyHR(printedWork->Close());
 
 	m_printControl->AddPage(printedWork.Get(), D2D1::SizeF(m_pageWidth, m_pageHeight), nullptr);
