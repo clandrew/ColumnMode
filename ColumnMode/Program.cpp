@@ -150,10 +150,15 @@ static void EnableMenuItem(WindowHandles windowHandles, int id)
 	EnableMenuItem(menu, id, MF_ENABLED);
 }
 
+static void DisableMenuItem(HMENU menu, int id)
+{
+	EnableMenuItem(menu, id, MF_DISABLED);
+}
+
 static void DisableMenuItem(WindowHandles windowHandles, int id)
 {
 	HMENU menu = GetMenu(windowHandles.TopLevel);
-	EnableMenuItem(menu, id, MF_DISABLED);
+	DisableMenuItem(menu, id);
 }
 
 bool IsValidPosition(int row, int column)
@@ -392,6 +397,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
 	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	EnableMenuItem(windowHandles, ID_FILE_PRINT);
+	EnableMenuItem(windowHandles, ID_EDIT_REPLICATEBLOCKEDGES);
 
 	UpdatePasteEnablement(windowHandles);
 }
@@ -614,17 +620,21 @@ void InitGraphics(WindowHandles windowHandles)
 
 	VerifyHR(g_textFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP));
 
-	DisableMenuItem(windowHandles, ID_FILE_SAVE);
-	DisableMenuItem(windowHandles, ID_FILE_SAVEAS);
-	DisableMenuItem(windowHandles, ID_FILE_REFRESH);
-	DisableMenuItem(windowHandles, ID_EDIT_UNDO);
-	DisableMenuItem(windowHandles, ID_EDIT_CUT);
-	DisableMenuItem(windowHandles, ID_EDIT_COPY);
-	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
-	DisableMenuItem(windowHandles, ID_EDIT_CUT);
-	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
-	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
-	DisableMenuItem(windowHandles, ID_FILE_PRINT);
+	HMENU topLevelMenu = GetMenu(windowHandles.TopLevel);
+	DisableMenuItem(topLevelMenu, ID_FILE_SAVE);
+	DisableMenuItem(topLevelMenu, ID_FILE_SAVEAS);
+	DisableMenuItem(topLevelMenu, ID_FILE_REFRESH);
+	DisableMenuItem(topLevelMenu, ID_EDIT_UNDO);
+	DisableMenuItem(topLevelMenu, ID_EDIT_CUT);
+	DisableMenuItem(topLevelMenu, ID_EDIT_COPY);
+	DisableMenuItem(topLevelMenu, ID_EDIT_PASTE);
+	DisableMenuItem(topLevelMenu, ID_EDIT_CUT);
+	DisableMenuItem(topLevelMenu, ID_EDIT_DELETE);
+	DisableMenuItem(topLevelMenu, ID_FILE_PROPERTIES);
+	DisableMenuItem(topLevelMenu, ID_FILE_PRINT);
+
+	CheckMenuItem(topLevelMenu, ID_EDIT_REPLICATEBLOCKEDGES, MF_BYCOMMAND | MF_CHECKED);
+	DisableMenuItem(topLevelMenu, ID_EDIT_REPLICATEBLOCKEDGES);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
 }
@@ -1113,7 +1123,7 @@ void TryMoveViewWithKeyboard(WPARAM wParam)
 	}
 	else if (wParam == 40)
 	{
-		g_layoutInfo.AdjustPositionY(100);
+		g_layoutInfo.AdjustPositionY(-100);
 	}
 	UpdateTextSelectionRectangle();
 }
