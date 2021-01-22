@@ -2159,6 +2159,11 @@ void OnPrint(WindowHandles windowHandles)
 	VerifyHR(hr);
 }
 
+void OnReplicatedBlockEdgesCheckedChanged(bool value)
+{
+
+}
+
 void OnInitializeDocumentProperties(HWND hDlg)
 {
 	assert(g_textLineStarts.size() <= INT_MAX);

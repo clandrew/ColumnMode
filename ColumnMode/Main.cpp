@@ -12,6 +12,7 @@ wchar_t const* szChildWindowClass = L"ColumnModeChildWindowClass";
 
 bool g_done;
 WindowHandles g_windowHandles;
+bool g_isReplicatedBlockEdgesChecked;
 
 // Forward declarations of functions included in this code module:
 void MyRegisterClass(HINSTANCE hInstance);
@@ -33,6 +34,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Perform application initialization:
 	g_windowHandles = {};
+	g_isReplicatedBlockEdgesChecked = true;
 	if (!InitInstance(hInstance, nCmdShow))
 	{
 		return FALSE;
@@ -251,6 +253,8 @@ LRESULT CALLBACK DocumentWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 
 LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	HMENU hMenu = GetMenu(hWnd);
+
 	switch (message)
 	{
 	case WM_COMMAND:
@@ -294,6 +298,20 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			break;
 		case ID_FILE_PRINT:
 			OnPrint(g_windowHandles);
+			break;
+		case ID_EDIT_REPLICATEBLOCKEDGES:
+			// Checkable ness
+			if (g_isReplicatedBlockEdgesChecked)
+			{
+				CheckMenuItem(hMenu, ID_EDIT_REPLICATEBLOCKEDGES, MF_UNCHECKED);
+				g_isReplicatedBlockEdgesChecked = false;
+			}
+			else
+			{
+				CheckMenuItem(hMenu, ID_EDIT_REPLICATEBLOCKEDGES, MF_CHECKED);
+				g_isReplicatedBlockEdgesChecked = true;
+			}
+			OnReplicatedBlockEdgesCheckedChanged(g_isReplicatedBlockEdgesChecked);
 			break;
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);

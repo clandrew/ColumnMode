@@ -38,6 +38,7 @@ void OnCopy(WindowHandles windowHandles);
 void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
 void OnPrint(WindowHandles windowHandles);
+void OnReplicatedBlockEdgesCheckedChanged(bool value);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
