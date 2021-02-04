@@ -13,8 +13,12 @@ std::wstring g_fileName;
 std::wstring g_windowTitleFileNamePrefix;
 bool g_hasUnsavedChanges;
 
-ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Factory1> g_d2dFactory;
+
+bool g_needsDeviceRecreation;
+
+// Device dependent resources
+ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Device> g_d2dDevice;
 ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
 ComPtr<ID2D1SolidColorBrush> g_redBrush;
@@ -23,6 +27,9 @@ ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
 ComPtr<ID2D1SolidColorBrush> g_lightGrayBrush;
 ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
 ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
+UINT g_marchingAntsIndex;
+std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
+
 ComPtr<IDWriteFactory> g_dwriteFactory;
 ComPtr<IDWriteTextFormat> g_textFormat;
 ComPtr<IDWriteTextLayout> g_textLayout;
@@ -86,8 +93,6 @@ struct KeyOutput
 };
 KeyOutput g_keyOutput[255];
 
-UINT g_marchingAntsIndex;
-std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
 bool g_isDragging;
 bool g_isTrackingLeaveClientArea;
@@ -524,22 +529,22 @@ static SignedRect GetTextSelectionRegion()
 	return r;
 }
 
-void InitGraphics(WindowHandles windowHandles)
+void ReleaseDeviceDependentResources()
 {
-	g_isFileLoaded = false;
-	g_isDragging = false;
-	g_isTrackingLeaveClientArea = false;
-	g_hasTextSelectionRectangle = false;
-	g_caretBlinkState = 0;
-	g_isShiftDown = false;
-	g_hasUnsavedChanges = false;
+	g_swapChain.Reset();
+	g_d2dDevice.Reset();
+	g_hwndRenderTarget.Reset();
+	g_redBrush.Reset();
+	g_blackBrush.Reset();
+	g_whiteBrush.Reset();
+	g_lightGrayBrush.Reset();
+	g_yellowBrush.Reset();
+	g_selectionBrush.Reset();
+	g_marchingAnts.clear();
+}
 
-	InitializeKeyOutput();
-
-	D2D1_FACTORY_OPTIONS factoryOptions = {};
-	factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
-	VerifyHR(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), &factoryOptions, &g_d2dFactory));
-
+void CreateDeviceDependentResources(WindowHandles windowHandles)
+{
 	auto windowSize = GetWindowSize(windowHandles.Document);
 
 	DXGI_SWAP_CHAIN_DESC swapChainDescription = {};
@@ -561,14 +566,14 @@ void InitGraphics(WindowHandles windowHandles)
 #endif
 
 	VerifyHR(D3D11CreateDeviceAndSwapChain(
-		nullptr, 
-		D3D_DRIVER_TYPE_HARDWARE, 
-		nullptr, 
+		nullptr,
+		D3D_DRIVER_TYPE_HARDWARE,
+		nullptr,
 		deviceFlags,
-		nullptr, 
-		0, 
+		nullptr,
+		0,
 		D3D11_SDK_VERSION,
-		&swapChainDescription, 
+		&swapChainDescription,
 		&g_swapChain,
 		&d3dDevice,
 		nullptr,
@@ -589,8 +594,8 @@ void InitGraphics(WindowHandles windowHandles)
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &g_whiteBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange, 0.15f), &g_yellowBrush));
 	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy, 0.2f), &g_selectionBrush));
-	
-	for(int i=0; i<4; ++i)
+
+	for (int i = 0; i < 4; ++i)
 	{
 		D2D1_STROKE_STYLE_PROPERTIES strokeStyleProperties = D2D1::StrokeStyleProperties();
 		strokeStyleProperties.dashStyle = D2D1_DASH_STYLE_DASH;
@@ -599,6 +604,26 @@ void InitGraphics(WindowHandles windowHandles)
 		VerifyHR(g_d2dFactory->CreateStrokeStyle(strokeStyleProperties, nullptr, 0, &strokeStyle));
 		g_marchingAnts.push_back(strokeStyle);
 	}
+}
+
+void InitGraphics(WindowHandles windowHandles)
+{
+	g_isFileLoaded = false;
+	g_isDragging = false;
+	g_isTrackingLeaveClientArea = false;
+	g_hasTextSelectionRectangle = false;
+	g_caretBlinkState = 0;
+	g_isShiftDown = false;
+	g_hasUnsavedChanges = false;
+	g_needsDeviceRecreation = false;
+
+	InitializeKeyOutput();
+
+	D2D1_FACTORY_OPTIONS factoryOptions = {};
+	factoryOptions.debugLevel = D2D1_DEBUG_LEVEL_INFORMATION;
+	VerifyHR(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), &factoryOptions, &g_d2dFactory));
+
+	CreateDeviceDependentResources(windowHandles);
 
 	VerifyHR(DWriteCreateFactory(DWRITE_FACTORY_TYPE_ISOLATED, __uuidof(IDWriteFactory), &g_dwriteFactory));
 
@@ -689,6 +714,12 @@ void DrawDocument()
 
 void Draw(WindowHandles windowHandles)
 {
+	if (g_needsDeviceRecreation)
+	{
+		CreateDeviceDependentResources(windowHandles);
+		g_needsDeviceRecreation = false;
+	}
+
 	g_hwndRenderTarget->BeginDraw();
 	g_hwndRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::LightGray));
 
@@ -699,7 +730,12 @@ void Draw(WindowHandles windowHandles)
 	
 	VerifyHR(g_hwndRenderTarget->EndDraw());
 
-	VerifyHR(g_swapChain->Present(1, 0));
+	HRESULT presentHr = g_swapChain->Present(1, 0);
+	if (FAILED(presentHr))
+	{
+		ReleaseDeviceDependentResources();
+		g_needsDeviceRecreation = true;
+	}
 }
 
 float ClampToRange(float value, float min, float max)
@@ -1336,6 +1372,9 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 
 void Update()
 {
+	if (g_marchingAnts.size() == 0)
+		return;
+
 	g_marchingAntsIndex = (g_marchingAntsIndex + 1) % (5 * g_marchingAnts.size());
 	g_caretBlinkState = (g_caretBlinkState + 1) % 50;
 }
