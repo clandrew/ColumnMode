@@ -3,6 +3,7 @@
 #include "Resource.h"
 #include "Verify.h"
 #include "LayoutInfo.h"
+#include "PluginManager.h"
 
 const float g_fontSize = 12.0f;
 const int g_tabLength = 4;
@@ -12,6 +13,8 @@ std::wstring g_fileFullPath;
 std::wstring g_fileName;
 std::wstring g_windowTitleFileNamePrefix;
 bool g_hasUnsavedChanges;
+
+ColumnMode::PluginManager g_pluginManager;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
