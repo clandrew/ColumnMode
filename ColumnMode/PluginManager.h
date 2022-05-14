@@ -11,7 +11,7 @@ namespace ColumnMode
 	private:
 		HRESULT EnsureModulePathExists();
 		std::vector<Plugin> m_plugins;
-		LPCWSTR m_moduleDirectoryName = L"Modules";
+		std::filesystem::path m_modulesRootPath;
 	};
 
 	class Plugin
