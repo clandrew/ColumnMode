@@ -42,7 +42,44 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 		return E_INVALIDARG;
 	}
 
+	PFN_OPENCOLUMNMODEPLUGIN pfnOpenPlugin = 
+		reinterpret_cast<PFN_OPENCOLUMNMODEPLUGIN>(GetProcAddress(pluginModule, "OpenColumnModePlugin"));
 
+	PluginFunctions pluginFuncs = { 0 };
+	OpenPluginArgs args;
+	args.apiVersion = c_ColumnModePluginApiVersion;
+	args.hPlugin = NULL;
+	args.pPluginFuncs = &pluginFuncs;
+	args.pCallbacks = &m_pluginCallbacks;
 
-	return E_NOTIMPL;
+	HRESULT hr = (*pfnOpenPlugin)(&args);
+	if (FAILED(hr))
+	{
+		MessageBox(NULL, pluginName, L"Failed to open plugin", MB_OK | MB_ICONERROR);
+		return E_FAIL;
+	}
+
+	Plugin p(args.hPlugin, pluginModule, pluginFuncs, pluginName);
+	m_plugins.push_back(std::move(p));
+
+	return S_OK;
 }
+
+#define DEFINE_PLUGIN_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
+void PluginManager::PF_##name##_ALL parameterList \
+{\
+	for (const Plugin& p : m_plugins) \
+	{\
+		if(p.m_pluginFuncs.pfn##name == nullptr) continue;\
+		HRESULT hr = (*p.m_pluginFuncs.pfn##name)parameterNames;\
+		if (FAILED(hr))\
+		{\
+			WCHAR msg[128];\
+			swprintf_s(msg, L"Failed plugin call: %s::%s", p.m_name, L#name);\
+			OutputDebugString(msg);\
+		}\
+	}\
+}
+
+#include "PluginManagerFunctions.inl"
+#undef DEFINE_PLUGIN_FUNCTION_CALL_ALL

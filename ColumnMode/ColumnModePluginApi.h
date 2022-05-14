@@ -17,11 +17,13 @@ namespace ColumnMode
 
 #pragma region PluginFunctions
 
-	typedef HRESULT(APIENTRY* PFN_PF_ONSELECTION)();
+	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(LPCWSTR);
+	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(LPCWSTR);
 
 	struct PluginFunctions
 	{
-		PFN_PF_ONSELECTION pfnOnSelection;
+		PFN_PF_ONSAVE pfnOnSave;
+		PFN_PF_ONSAVEAS pfnOnSaveAs;
 	};
 
 #pragma endregion
@@ -37,3 +39,4 @@ namespace ColumnMode
 
 
 extern "C" HRESULT WINAPI OpenColumnModePlugin(_Inout_ ColumnMode::OpenPluginArgs* args);
+typedef HRESULT(WINAPI* PFN_OPENCOLUMNMODEPLUGIN)(_Inout_ ColumnMode::OpenPluginArgs* args);
