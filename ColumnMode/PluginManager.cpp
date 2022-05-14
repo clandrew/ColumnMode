@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include <ShlObj.h>	//Get access to %APPDATA%
+#include <strsafe.h>
 
 #include "PluginManager.h"
 #include "Verify.h"
@@ -30,6 +31,7 @@ ColumnMode::PluginManager::PluginManager()
 
 HRESULT ColumnMode::PluginManager::ScanForPlugins()
 {
+	m_availablePlugins.clear();
 	std::filesystem::directory_iterator dirIter(m_modulesRootPath, std::filesystem::directory_options::none);
 	for (auto& dir : dirIter)
 	{
@@ -40,10 +42,10 @@ HRESULT ColumnMode::PluginManager::ScanForPlugins()
 			stash.resize(dirStr.length());
 			stash.clear();
 			dirStr.copy(stash.data(), dirStr.length());
-			availablePlugins.push_back(std::move(stash));
+			m_availablePlugins.push_back(std::move(stash));
 		}
 	}
-	std::sort(availablePlugins.begin(), availablePlugins.end());
+	std::sort(m_availablePlugins.begin(), m_availablePlugins.end());
 
 	return S_OK;
 }
@@ -54,7 +56,6 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	path.append(pluginName)	//Plugins should be in a folder of the plugin name
 		.append(pluginName)	//Plugin is a DLL file of the plugin name
 		.replace_extension(L".dll");
-	//MessageBox(NULL, path.c_str(), L"LoadPlugin()", MB_OK);
 
 	HMODULE pluginModule = LoadLibrary(path.c_str());
 	if (pluginModule == NULL)
@@ -86,6 +87,18 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	return S_OK;
 }
 
+bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
+{
+	for (Plugin& p : m_plugins)
+	{
+		if (p.m_name.compare(pluginName) == 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 #define DEFINE_PLUGIN_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
 void PluginManager::PF_##name##_ALL parameterList \
 {\
@@ -96,7 +109,7 @@ void PluginManager::PF_##name##_ALL parameterList \
 		if (FAILED(hr))\
 		{\
 			WCHAR msg[128];\
-			swprintf_s(msg, L"Failed plugin call: %s::%s", p.m_name, L#name);\
+			swprintf_s(msg, L"Failed plugin call: %s::%s", p.m_name.c_str(), L#name);\
 			OutputDebugString(msg);\
 		}\
 	}\

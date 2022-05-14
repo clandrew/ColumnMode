@@ -69,6 +69,11 @@ BEGIN
     BEGIN
         MENUITEM "&About ...",                  IDM_ABOUT
     END
+    POPUP "Plugins"
+    BEGIN
+        MENUITEM "Rescan",                      ID_PLUGINS_RESCAN
+        MENUITEM SEPARATOR
+    END
 END
 
 

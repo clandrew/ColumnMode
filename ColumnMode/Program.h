@@ -38,6 +38,8 @@ void OnCopy(WindowHandles windowHandles);
 void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
 void OnPrint(WindowHandles windowHandles);
+void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
+bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);

@@ -655,6 +655,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
+	OnPluginRescan(windowHandles, /*skip rescan*/ true);
 }
 
 void DrawDocument()
@@ -2191,6 +2192,62 @@ void OnPrint(WindowHandles windowHandles)
 	}
 
 	VerifyHR(hr);
+}
+
+void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
+{
+	 HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	 HMENU pluginMenu = GetSubMenu(toplevelMenu, 3);//Third menu in the list. Should probably just create it in code
+	 int numItems = GetMenuItemCount(pluginMenu);
+	 constexpr int seperatorIndex = 1;
+	 for (int i = numItems-1; i > seperatorIndex ; i--)
+	 {
+		 HMENU m = (HMENU)(UINT_PTR)GetMenuItemID(pluginMenu, i);
+		 DestroyMenu(m);
+		 RemoveMenu(pluginMenu, i, MF_BYPOSITION);
+	 }
+	 
+	 if (!skipRescan)
+	 {
+		 g_pluginManager.ScanForPlugins();
+	 }
+	 UINT id = ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX;
+	 for (auto& str : g_pluginManager.GetAvailablePlugins())
+	 {
+		 AppendMenu(pluginMenu, MF_STRING, id, str.c_str());
+		 //If already active:
+		 if (g_pluginManager.IsPluginLoaded(str.c_str()))
+		 {
+			 CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
+		 }
+		 id++;
+	 }	 
+}
+
+bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU pluginMenu = GetSubMenu(toplevelMenu, 3);//Third menu in the list. Should probably just create it in code
+	int numItems = GetMenuItemCount(pluginMenu);
+	if (id - ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX > numItems)
+	{
+		return false;
+	}
+	WCHAR buff[64];
+	int size = GetMenuString(pluginMenu, id, buff, 64, MF_BYCOMMAND);
+	if (size > 0)
+	{
+		if (!g_pluginManager.IsPluginLoaded(buff))
+		{
+			if (SUCCEEDED(g_pluginManager.LoadPlugin(buff)))
+			{
+				//Only check it if we actually loaded successfully
+				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
+			}
+		}
+		//TODO: Should probably be able to disbale plugins :P
+	}
+	return true;
 }
 
 void OnInitializeDocumentProperties(HWND hDlg)
