@@ -1514,6 +1514,7 @@ void OnSave(WindowHandles windowHandles)
 	
 	g_hasUnsavedChanges = false;
 	UpdateWindowTitle(windowHandles);
+	g_pluginManager.PF_OnSave_ALL(g_fileFullPath.c_str());
 }
 
 void OnSaveAs(WindowHandles windowHandles)
@@ -1554,6 +1555,7 @@ void OnSaveAs(WindowHandles windowHandles)
 		g_hasUnsavedChanges = false;
 
 		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
+		g_pluginManager.PF_OnSaveAs_ALL(ofn.lpstrFile);
 	}
 }
 
