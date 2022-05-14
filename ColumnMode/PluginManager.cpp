@@ -25,6 +25,27 @@ HRESULT ColumnMode::PluginManager::EnsureModulePathExists()
 ColumnMode::PluginManager::PluginManager()
 {
 	EnsureModulePathExists();
+	ScanForPlugins();
+}
+
+HRESULT ColumnMode::PluginManager::ScanForPlugins()
+{
+	std::filesystem::directory_iterator dirIter(m_modulesRootPath, std::filesystem::directory_options::none);
+	for (auto& dir : dirIter)
+	{
+		if (dir.is_directory())
+		{
+			std::wstring dirStr = dir.path().filename().wstring();
+			std::wstring stash;
+			stash.resize(dirStr.length());
+			stash.clear();
+			dirStr.copy(stash.data(), dirStr.length());
+			availablePlugins.push_back(std::move(stash));
+		}
+	}
+	std::sort(availablePlugins.begin(), availablePlugins.end());
+
+	return S_OK;
 }
 
 HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)

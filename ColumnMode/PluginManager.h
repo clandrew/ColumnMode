@@ -7,6 +7,7 @@ namespace ColumnMode
 	{
 	public:
 		PluginManager();
+		HRESULT ScanForPlugins();
 		HRESULT LoadPlugin(LPCWSTR pluginName);
 
 #define DECLARE_PLUGIN_FUNCTION_CALL_ALL(name, parameterTypeList) void PF_##name##_ALL parameterTypeList;
@@ -18,6 +19,7 @@ namespace ColumnMode
 		std::vector<Plugin> m_plugins;
 		std::filesystem::path m_modulesRootPath;
 		ColumnModeCallbacks m_pluginCallbacks;
+		std::vector<std::wstring> availablePlugins;
 	};
 
 	struct Plugin
