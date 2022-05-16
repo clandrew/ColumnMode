@@ -1,17 +1,23 @@
 #pragma once
 
+#include "ColumnModeTypes.h"
+
 namespace ColumnMode
 {
 	constexpr UINT c_ColumnModePluginApiVersion = 1;
 
 #pragma region ColumnModeCallbacks
 
-	
-	typedef HRESULT(APIENTRY* PFN_CB_OPENWINDOW)(_In_ LPCWSTR);
+	//windowing
+	typedef ATOM(APIENTRY* PFN_CB_REGISTERWINDOWCLASS)(_In_ WNDCLASS);
+	typedef ATOM(APIENTRY* PFN_CB_REGISTERWINDOWCLASSEX)(_In_ WNDCLASSEX);
+	typedef HRESULT(APIENTRY* PFN_CB_OPENWINDOW)(_In_ CreateWindowArgs, _Inout_ HWND* pHwnd);
 
 	struct ColumnModeCallbacks
 	{
-		PFN_CB_OPENWINDOW pfnMessagePopup;
+		PFN_CB_REGISTERWINDOWCLASS pfnRegisterWindowClass;
+		PFN_CB_REGISTERWINDOWCLASSEX pfnRegisterWindowClassEx;
+		PFN_CB_OPENWINDOW pfnOpenWindow;
 	};
 
 #pragma endregion

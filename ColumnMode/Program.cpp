@@ -613,9 +613,13 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 
 void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
 {
+	using namespace ColumnMode;
 	g_windowManager.Init(hInstance, windowHandles);
 
-	ColumnMode::ColumnModeCallbacks callbacks {0};
+	ColumnModeCallbacks callbacks {0};
+	callbacks.pfnRegisterWindowClass = [](WNDCLASS wc) { return g_windowManager.CreateWindowClass(wc); };
+	callbacks.pfnRegisterWindowClassEx = [](WNDCLASSEX wc) { return g_windowManager.CreateWindowClassEx(wc); };
+	callbacks.pfnOpenWindow = [](CreateWindowArgs args, HWND* hwnd) { return g_windowManager.CreateNewWindow(args, hwnd); };
 	
 	g_pluginManager.Init(callbacks);
 	OnPluginRescan(windowHandles, /*skip rescan*/ true);

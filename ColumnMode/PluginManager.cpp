@@ -87,7 +87,10 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	}
 
 	Plugin p(args.hPlugin, pluginModule, pluginFuncs, pluginName);
-	p.OnLoadCompleted();
+	if (FAILED(p.OnLoadCompleted()))
+	{
+		MessageBox(NULL, pluginName, L"OnLoadCompleted() failed", MB_OK | MB_ICONERROR);
+	}
 	m_plugins.push_back(std::move(p));
 
 	return S_OK;
