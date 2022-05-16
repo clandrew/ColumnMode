@@ -10,6 +10,8 @@ namespace ColumnMode
 		HRESULT ScanForPlugins();
 		HRESULT LoadPlugin(LPCWSTR pluginName);
 		bool IsPluginLoaded(LPCWSTR pluginName);
+		bool GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin);
+		bool GetPlugin(UINT pluginId, Plugin** ppPlugin);
 		std::vector<std::wstring>& GetAvailablePlugins() { return m_availablePlugins; }
 
 #define DECLARE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterTypeList) void PF_##name##_ALL parameterTypeList;

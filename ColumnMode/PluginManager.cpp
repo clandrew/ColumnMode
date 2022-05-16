@@ -100,6 +100,33 @@ bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
 	return false;
 }
 
+bool PluginManager::GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin)
+{
+	assert(ppPlugin != nullptr);
+	*ppPlugin = nullptr;
+	for (Plugin& p : m_plugins)
+	{
+		if (p.m_name.compare(pluginName) == 0)
+		{
+			*ppPlugin = &p;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool PluginManager::GetPlugin(UINT pluginId, Plugin** ppPlugin)
+{
+	assert(ppPlugin != nullptr);
+	*ppPlugin = nullptr;
+	if (pluginId > m_plugins.size())
+	{
+		return false;
+	}
+	*ppPlugin = &m_plugins[pluginId];
+	return true;
+}
+
 #define DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
 void PluginManager::PF_##name##_ALL parameterList \
 {\
