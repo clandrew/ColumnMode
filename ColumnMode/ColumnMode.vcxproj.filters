@@ -74,5 +74,8 @@
     <None Include="PluginManagerFunctions.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="PluginFunctions.inl">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

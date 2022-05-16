@@ -82,6 +82,7 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	}
 
 	Plugin p(args.hPlugin, pluginModule, pluginFuncs, pluginName);
+	p.OnLoadCompleted();
 	m_plugins.push_back(std::move(p));
 
 	return S_OK;
@@ -99,7 +100,7 @@ bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
 	return false;
 }
 
-#define DEFINE_PLUGIN_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
+#define DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
 void PluginManager::PF_##name##_ALL parameterList \
 {\
 	for (const Plugin& p : m_plugins) \
@@ -116,4 +117,18 @@ void PluginManager::PF_##name##_ALL parameterList \
 }
 
 #include "PluginManagerFunctions.inl"
-#undef DEFINE_PLUGIN_FUNCTION_CALL_ALL
+#undef DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL
+
+//--------------------------------------------------------------------------------------------------------
+//------------------------------------ Plugin Methods below this line ------------------------------------
+//--------------------------------------------------------------------------------------------------------
+
+#define DEFINE_PLUGIN_FUNCTION_CALL(name, parameterList, parameterNames) \
+HRESULT Plugin::##name parameterList \
+{\
+	if(m_pluginFuncs.pfn##name == nullptr) { return S_FALSE; }\
+	return (*m_pluginFuncs.pfn##name)parameterNames; \
+}
+
+#include "PluginFunctions.inl"
+#undef DEFINE_PLUGIN_FUNCTION_CALL

@@ -17,13 +17,21 @@ namespace ColumnMode
 
 #pragma region PluginFunctions
 
+	//File operations
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(LPCWSTR);
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(LPCWSTR);
+
+	//Plugin Life cycle
+	typedef HRESULT(APIENTRY* PFN_PF_ONLOADCOMPLETED)(HANDLE);	//Called after OpenColumnModePlugin
+	typedef HRESULT(APIENTRY* PFN_PF_ONSHUTDOWN)(HANDLE);		//Called before the plugin is unloaded
 
 	struct PluginFunctions
 	{
 		PFN_PF_ONSAVE pfnOnSave;
 		PFN_PF_ONSAVEAS pfnOnSaveAs;
+
+		PFN_PF_ONLOADCOMPLETED pfnOnLoadCompleted;
+		PFN_PF_ONSHUTDOWN pfnOnShutdown;
 	};
 
 #pragma endregion
