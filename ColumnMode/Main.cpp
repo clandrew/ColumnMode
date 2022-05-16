@@ -169,6 +169,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	{
 		return FALSE;
 	}
+
+	InitManagers(hInstance, g_windowHandles);
 	
 	// ShowWindow will start putting messages (e.g., WM_SIZE) through. So it's okay to do this first before initializing graphics,
 	// just make sure everything doesn't hard rely on swap chains being created yet.

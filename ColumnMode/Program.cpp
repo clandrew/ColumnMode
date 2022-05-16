@@ -4,6 +4,7 @@
 #include "Verify.h"
 #include "LayoutInfo.h"
 #include "PluginManager.h"
+#include "WindowManager.h"
 
 const float g_fontSize = 12.0f;
 const int g_tabLength = 4;
@@ -15,6 +16,7 @@ std::wstring g_windowTitleFileNamePrefix;
 bool g_hasUnsavedChanges;
 
 ColumnMode::PluginManager g_pluginManager;
+ColumnMode::WindowManager g_windowManager;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -609,6 +611,16 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 	}
 }
 
+void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
+{
+	g_windowManager.Init(hInstance, windowHandles);
+
+	ColumnMode::ColumnModeCallbacks callbacks {0};
+	
+	g_pluginManager.Init(callbacks);
+	OnPluginRescan(windowHandles, /*skip rescan*/ true);
+}
+
 void InitGraphics(WindowHandles windowHandles)
 {
 	g_isFileLoaded = false;
@@ -655,7 +667,6 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
-	OnPluginRescan(windowHandles, /*skip rescan*/ true);
 }
 
 void DrawDocument()

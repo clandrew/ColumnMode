@@ -6,11 +6,12 @@ namespace ColumnMode
 
 #pragma region ColumnModeCallbacks
 
-	typedef HRESULT(APIENTRY* PFN_CB_MESSAGEPOPUP)(_In_ LPCWSTR);
+	
+	typedef HRESULT(APIENTRY* PFN_CB_OPENWINDOW)(_In_ LPCWSTR);
 
 	struct ColumnModeCallbacks
 	{
-		PFN_CB_MESSAGEPOPUP pfnMessagePopup;
+		PFN_CB_OPENWINDOW pfnMessagePopup;
 	};
 
 #pragma endregion

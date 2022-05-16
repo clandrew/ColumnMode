@@ -9,6 +9,7 @@ struct WindowHandles
 	HWND StatusBarLabel;
 };
 
+void InitManagers(HINSTANCE hinstance, WindowHandles windowHandles);
 void InitGraphics(WindowHandles windowHandles);
 void Draw(WindowHandles windowHandles);
 void Update();

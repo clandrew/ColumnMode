@@ -29,6 +29,11 @@ ColumnMode::PluginManager::PluginManager()
 	ScanForPlugins();
 }
 
+void ColumnMode::PluginManager::Init(ColumnModeCallbacks callbacks)
+{
+	m_pluginCallbacks = callbacks;
+}
+
 HRESULT ColumnMode::PluginManager::ScanForPlugins()
 {
 	m_availablePlugins.clear();
