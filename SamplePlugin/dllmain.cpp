@@ -16,7 +16,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
-HRESULT APIENTRY OnSave(LPCWSTR filepath)
+HRESULT APIENTRY OnSave(HANDLE, LPCWSTR filepath)
 {
     MessageBox(NULL, filepath, g_pluginName, MB_OK);
 

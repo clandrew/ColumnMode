@@ -25,8 +25,8 @@ namespace ColumnMode
 #pragma region PluginFunctions
 
 	//File operations
-	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(LPCWSTR);
-	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(LPCWSTR);
+	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(HANDLE, LPCWSTR);
+	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(HANDLE, LPCWSTR);
 
 	//Plugin Life cycle
 	typedef HRESULT(APIENTRY* PFN_PF_ONLOADCOMPLETED)(HANDLE);	//Called after OpenColumnModePlugin
