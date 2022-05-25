@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "Main.h"
 #include "Program.h"
+#include "PluginManager.h"
 
 #define MAX_LOADSTRING 100
 
@@ -168,6 +169,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 	{
 		return FALSE;
 	}
+
+	InitManagers(hInstance, g_windowHandles);
 	
 	// ShowWindow will start putting messages (e.g., WM_SIZE) through. So it's okay to do this first before initializing graphics,
 	// just make sure everything doesn't hard rely on swap chains being created yet.
@@ -298,12 +301,20 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case IDM_ABOUT:
 			DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
 			break;
+		case ID_PLUGINS_RESCAN:
+			OnPluginRescan(g_windowHandles);
+			break;
 		case IDM_EXIT:
 			DestroyWindow(hWnd);
 			break;
 		default:
-			return DefWindowProc(hWnd, message, wParam, lParam);
+			if (!OnMaybePluginSelected(g_windowHandles, LOWORD(wParam)))
+			{
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
 		}
+
+		
 	}
 	break;
 	case WM_KEYDOWN:

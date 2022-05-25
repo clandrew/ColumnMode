@@ -1,12 +1,12 @@
 #pragma once
 
-void VerifyHR(HRESULT hr)
+void inline VerifyHR(HRESULT hr)
 {
 	if (FAILED(hr))
 		__debugbreak();
 }
 
-void VerifyBool(BOOL b)
+void inline VerifyBool(BOOL b)
 {
 	if (!b)
 		__debugbreak();

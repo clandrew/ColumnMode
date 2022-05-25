@@ -9,6 +9,7 @@ struct WindowHandles
 	HWND StatusBarLabel;
 };
 
+void InitManagers(HINSTANCE hinstance, WindowHandles windowHandles);
 void InitGraphics(WindowHandles windowHandles);
 void Draw(WindowHandles windowHandles);
 void Update();
@@ -38,6 +39,8 @@ void OnCopy(WindowHandles windowHandles);
 void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
 void OnPrint(WindowHandles windowHandles);
+void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
+bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);

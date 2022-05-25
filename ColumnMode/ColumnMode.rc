@@ -47,8 +47,8 @@ BEGIN
     BEGIN
         MENUITEM "New\tCtrl+N",                 ID_FILE_NEW
         MENUITEM "Open\tCtrl+O",                ID_FILE_OPEN
-        MENUITEM "Save As",                     ID_FILE_SAVEAS
         MENUITEM "Save\tCtrl+S",                ID_FILE_SAVE
+        MENUITEM "Save As\tCtrl+Shift+S",       ID_FILE_SAVEAS
         MENUITEM "Refresh\tF5",                 ID_FILE_REFRESH
         MENUITEM "Properties...",               ID_FILE_PROPERTIES
         MENUITEM SEPARATOR
@@ -69,6 +69,11 @@ BEGIN
     BEGIN
         MENUITEM "&About ...",                  IDM_ABOUT
     END
+    POPUP "Plugins"
+    BEGIN
+        MENUITEM "Rescan",                      ID_PLUGINS_RESCAN
+        MENUITEM SEPARATOR
+    END
 END
 
 
@@ -86,10 +91,11 @@ BEGIN
     "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
     "N",            ID_FILE_NEW,            VIRTKEY, CONTROL, NOINVERT
     "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL, NOINVERT
+    "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
     VK_F5,          ID_FILE_REFRESH,        VIRTKEY, NOINVERT
     "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
     "/",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
-    "P",            ID_FILE_PRINT,          VIRTKEY, CONTROL, NOINVERT
+    "S",            ID_FILE_SAVEAS,         VIRTKEY, SHIFT, CONTROL, NOINVERT
 END
 
 

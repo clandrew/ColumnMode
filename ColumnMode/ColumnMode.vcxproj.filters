@@ -36,6 +36,18 @@
     <ClInclude Include="Verify.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ColumnModePluginApi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PluginManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ColumnModeTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -45,6 +57,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Program.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PluginManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WindowManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -60,5 +78,13 @@
     <ResourceCompile Include="ColumnMode.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PluginManagerFunctions.inl">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="PluginFunctions.inl">
+      <Filter>Header Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

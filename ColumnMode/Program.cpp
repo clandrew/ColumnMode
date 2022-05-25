@@ -3,6 +3,8 @@
 #include "Resource.h"
 #include "Verify.h"
 #include "LayoutInfo.h"
+#include "PluginManager.h"
+#include "WindowManager.h"
 
 const float g_fontSize = 12.0f;
 const int g_tabLength = 4;
@@ -12,6 +14,9 @@ std::wstring g_fileFullPath;
 std::wstring g_fileName;
 std::wstring g_windowTitleFileNamePrefix;
 bool g_hasUnsavedChanges;
+
+ColumnMode::PluginManager g_pluginManager;
+ColumnMode::WindowManager g_windowManager;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -604,6 +609,20 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 		VerifyHR(g_d2dFactory->CreateStrokeStyle(strokeStyleProperties, nullptr, 0, &strokeStyle));
 		g_marchingAnts.push_back(strokeStyle);
 	}
+}
+
+void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
+{
+	using namespace ColumnMode;
+	g_windowManager.Init(hInstance, windowHandles);
+
+	ColumnModeCallbacks callbacks {0};
+	callbacks.pfnRegisterWindowClass = [](WNDCLASS wc) { return g_windowManager.CreateWindowClass(wc); };
+	callbacks.pfnRegisterWindowClassEx = [](WNDCLASSEX wc) { return g_windowManager.CreateWindowClassEx(wc); };
+	callbacks.pfnOpenWindow = [](CreateWindowArgs args, HWND* hwnd) { return g_windowManager.CreateNewWindow(args, hwnd); };
+	
+	g_pluginManager.Init(callbacks);
+	OnPluginRescan(windowHandles, /*skip rescan*/ true);
 }
 
 void InitGraphics(WindowHandles windowHandles)
@@ -1495,6 +1514,7 @@ void OnOpen(WindowHandles windowHandles)
 
 		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 		EnableMenuItem(windowHandles, ID_FILE_SAVE);
+		g_pluginManager.PF_OnOpen_ALL(ofn.lpstrFile);
 	}
 }
 
@@ -1511,6 +1531,7 @@ void OnSave(WindowHandles windowHandles)
 	
 	g_hasUnsavedChanges = false;
 	UpdateWindowTitle(windowHandles);
+	g_pluginManager.PF_OnSave_ALL(g_fileFullPath.c_str());
 }
 
 void OnSaveAs(WindowHandles windowHandles)
@@ -1551,6 +1572,7 @@ void OnSaveAs(WindowHandles windowHandles)
 		g_hasUnsavedChanges = false;
 
 		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
+		g_pluginManager.PF_OnSaveAs_ALL(ofn.lpstrFile);
 	}
 }
 
@@ -2186,6 +2208,62 @@ void OnPrint(WindowHandles windowHandles)
 	}
 
 	VerifyHR(hr);
+}
+
+void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
+{
+	 HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	 HMENU pluginMenu = GetSubMenu(toplevelMenu, 3);//Third menu in the list. Should probably just create it in code
+	 int numItems = GetMenuItemCount(pluginMenu);
+	 constexpr int seperatorIndex = 1;
+	 for (int i = numItems-1; i > seperatorIndex ; i--)
+	 {
+		 HMENU m = (HMENU)(UINT_PTR)GetMenuItemID(pluginMenu, i);
+		 DestroyMenu(m);
+		 RemoveMenu(pluginMenu, i, MF_BYPOSITION);
+	 }
+	 
+	 if (!skipRescan)
+	 {
+		 g_pluginManager.ScanForPlugins();
+	 }
+	 UINT id = ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX;
+	 for (auto& str : g_pluginManager.GetAvailablePlugins())
+	 {
+		 AppendMenu(pluginMenu, MF_STRING, id, str.c_str());
+		 //If already active:
+		 if (g_pluginManager.IsPluginLoaded(str.c_str()))
+		 {
+			 CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
+		 }
+		 id++;
+	 }	 
+}
+
+bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU pluginMenu = GetSubMenu(toplevelMenu, 3);//Third menu in the list. Should probably just create it in code
+	int numItems = GetMenuItemCount(pluginMenu);
+	if (id - ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX > numItems)
+	{
+		return false;
+	}
+	WCHAR buff[64];
+	int size = GetMenuString(pluginMenu, id, buff, 64, MF_BYCOMMAND);
+	if (size > 0)
+	{
+		if (!g_pluginManager.IsPluginLoaded(buff))
+		{
+			if (SUCCEEDED(g_pluginManager.LoadPlugin(buff)))
+			{
+				//Only check it if we actually loaded successfully
+				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
+			}
+		}
+		//TODO: Should probably be able to disbale plugins :P
+	}
+	return true;
 }
 
 void OnInitializeDocumentProperties(HWND hDlg)
