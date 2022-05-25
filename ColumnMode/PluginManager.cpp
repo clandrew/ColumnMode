@@ -43,11 +43,7 @@ HRESULT ColumnMode::PluginManager::ScanForPlugins()
 		if (dir.is_directory())
 		{
 			std::wstring dirStr = dir.path().filename().wstring();
-			std::wstring stash;
-			stash.resize(dirStr.length());
-			stash.clear();
-			dirStr.copy(stash.data(), dirStr.length());
-			m_availablePlugins.push_back(std::move(stash));
+			m_availablePlugins.push_back(std::move(dirStr));
 		}
 	}
 	std::sort(m_availablePlugins.begin(), m_availablePlugins.end());
