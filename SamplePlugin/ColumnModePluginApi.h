@@ -25,6 +25,7 @@ namespace ColumnMode
 #pragma region PluginFunctions
 
 	//File operations
+	typedef HRESULT(APIENTRY* PFN_PF_ONOPEN)(HANDLE, LPCWSTR);
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(HANDLE, LPCWSTR);
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(HANDLE, LPCWSTR);
 
@@ -34,6 +35,7 @@ namespace ColumnMode
 
 	struct PluginFunctions
 	{
+		PFN_PF_ONOPEN pfnOnOpen;
 		PFN_PF_ONSAVE pfnOnSave;
 		PFN_PF_ONSAVEAS pfnOnSaveAs;
 

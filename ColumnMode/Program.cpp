@@ -1514,6 +1514,7 @@ void OnOpen(WindowHandles windowHandles)
 
 		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 		EnableMenuItem(windowHandles, ID_FILE_SAVE);
+		g_pluginManager.PF_OnOpen_ALL(ofn.lpstrFile);
 	}
 }
 
