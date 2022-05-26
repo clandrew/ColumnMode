@@ -11,6 +11,7 @@ ColumnMode is a lightweight, column-based text editor.
 * Blocks of text can be moved with SHIFT+arrowkeys keystroke
 * Supports copying and pasting
 * Supports undo
+* Supports print
 
 ![Example image](https://raw.githubusercontent.com/clandrew/ColumnMode/master/Images/CutPaste.gif "Example image")
 ![Example image](https://raw.githubusercontent.com/clandrew/ColumnMode/master/Images/Undo.gif "Example image")
