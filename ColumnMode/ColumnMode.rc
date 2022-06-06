@@ -65,14 +65,14 @@ BEGIN
         MENUITEM "Paste\tCtrl+V",               ID_EDIT_PASTE
         MENUITEM "Delete\tDel",                 ID_EDIT_DELETE
     END
-    POPUP "&Help"
-    BEGIN
-        MENUITEM "&About ...",                  IDM_ABOUT
-    END
     POPUP "Plugins"
     BEGIN
         MENUITEM "Rescan",                      ID_PLUGINS_RESCAN
         MENUITEM SEPARATOR
+    END
+    POPUP "&Help"
+    BEGIN
+    MENUITEM "&About ...", IDM_ABOUT
     END
 END
 
