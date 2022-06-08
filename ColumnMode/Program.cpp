@@ -6,6 +6,8 @@
 #include "PluginManager.h"
 #include "WindowManager.h"
 
+void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
+
 const float g_fontSize = 12.0f;
 const int g_tabLength = 4;
 
@@ -97,6 +99,12 @@ struct KeyOutput
 	}
 };
 KeyOutput g_keyOutput[255];
+
+enum class Mode
+{
+	DiagramMode,
+	TextMode
+} g_mode;
 
 
 bool g_isDragging;
@@ -416,7 +424,7 @@ void UpdateWindowTitle(WindowHandles windowHandles)
 	SetWindowText(windowHandles.TopLevel, windowTitle.c_str());
 }
 
-void SetCurrentFileNameAndUpdateWindowTitle(WindowHandles windowHandles, wchar_t* fileName)
+void SetCurrentFileNameAndUpdateWindowTitle(WindowHandles windowHandles, wchar_t const* fileName)
 {
 	g_windowTitleFileNamePrefix = L"ColumnMode - ";
 	if (fileName)
@@ -635,6 +643,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
+	g_mode = Mode::DiagramMode;
 
 	InitializeKeyOutput();
 
@@ -671,6 +680,14 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
 	Static_SetText(windowHandles.StatusBarLabel, L"");
+
+#define LOCAL_DEBUGGING 0
+
+#if LOCAL_DEBUGGING 
+	// For when you want to instant-open a document (and, optionally, set some settings) on program load.
+	OpenImpl(windowHandles, L"C:\\Users\\SomeUser\\Documents\\doc.txt");
+	OnTextMode(windowHandles);
+#endif
 }
 
 void DrawDocument()
@@ -1034,7 +1051,17 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockLeft, overwrittenChars);
 		}
 
-		for (int x = selection.Left - 1; x <= selection.Right; ++x)
+		int xBoundary;
+		if (g_mode == Mode::DiagramMode)
+		{
+			xBoundary = selection.Right;
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			xBoundary = selection.Right-1;
+		}
+
+		for (int x = selection.Left - 1; x <= xBoundary; ++x)
 		{
 			for (int y = selection.Top; y <= selection.Bottom; ++y)
 			{
@@ -1065,7 +1092,17 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockUp, overwrittenChars);
 		}
 
-		for (int y = selection.Top - 1; y <= selection.Bottom; ++y)
+		int yBoundary;
+		if (g_mode == Mode::DiagramMode)
+		{
+			yBoundary = selection.Bottom;
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			yBoundary = selection.Bottom-1;
+		}
+
+		for (int y = selection.Top - 1; y <= yBoundary; ++y)
 		{
 			for (int x = selection.Left; x <= selection.Right; ++x)
 			{
@@ -1099,7 +1136,17 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockRight, overwrittenChars);
 		}
 
-		for (int x = static_cast<int>(selection.Right); x >= static_cast<int>(selection.Left)-1; --x)
+		int xBoundary;
+		if (g_mode == Mode::DiagramMode)
+		{
+			xBoundary = selection.Left - 1;
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			xBoundary = selection.Left;
+		}
+
+		for (int x = static_cast<int>(selection.Right); x >= xBoundary; --x)
 		{
 			for (int y = static_cast<int>(selection.Top); y <= static_cast<int>(selection.Bottom); ++y)
 			{
@@ -1130,7 +1177,17 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 			AddMoveBlockAction(windowHandles, selection, Action::MoveBlockDown, overwrittenChars);
 		}
 
-		for (int y = static_cast<int>(selection.Bottom); y >= static_cast<int>(selection.Top)-1; --y)
+		int yBoundary;
+		if (g_mode == Mode::DiagramMode)
+		{
+			yBoundary = selection.Top - 1;
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			yBoundary = selection.Top;
+		}
+
+		for (int y = static_cast<int>(selection.Bottom); y >= yBoundary; --y)
 		{
 			for (int x = static_cast<int>(selection.Left); x <= static_cast<int>(selection.Right); ++x)
 			{
@@ -1471,6 +1528,19 @@ void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam)
 	SetScrollInfo(windowHandles.Document, SB_VERT, &scrollInfo, TRUE);
 }
 
+void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName)
+{
+	SetCurrentFileNameAndUpdateWindowTitle(windowHandles, fileName);
+
+	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(fileName);
+
+	InitializeDocument(windowHandles, loadFileResult);
+
+	EnableMenuItem(windowHandles, ID_FILE_REFRESH);
+	EnableMenuItem(windowHandles, ID_FILE_SAVE);
+	g_pluginManager.PF_OnOpen_ALL(fileName);
+}
+
 void OnOpen(WindowHandles windowHandles)
 {
 	g_isCtrlDown = false;
@@ -1506,15 +1576,7 @@ void OnOpen(WindowHandles windowHandles)
 
 	if (!!GetOpenFileName(&ofn))
 	{
-		SetCurrentFileNameAndUpdateWindowTitle(windowHandles, ofn.lpstrFile);
-
-		LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(ofn.lpstrFile);
-
-		InitializeDocument(windowHandles, loadFileResult);
-
-		EnableMenuItem(windowHandles, ID_FILE_REFRESH);
-		EnableMenuItem(windowHandles, ID_FILE_SAVE);
-		g_pluginManager.PF_OnOpen_ALL(ofn.lpstrFile);
+		OpenImpl(windowHandles, ofn.lpstrFile);
 	}
 }
 
@@ -2214,7 +2276,7 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
 {
 	 HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
 
-	 int pluginMenuIndex = 2;
+	 int pluginMenuIndex = 3;
 
 #if _DEBUG
 	 wchar_t str[255];
@@ -2496,7 +2558,22 @@ void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM 
 	}
 
 	EndDialog(hDlg, LOWORD(wParam));
+}
 
+void OnDiagramMode(WindowHandles windowHandles)
+{
+	HMENU menu = GetMenu(windowHandles.TopLevel);
+	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_CHECKED);
+	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_UNCHECKED);
+	g_mode = Mode::DiagramMode;
+}
+
+void OnTextMode(WindowHandles windowHandles)
+{
+	HMENU menu = GetMenu(windowHandles.TopLevel);
+	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_UNCHECKED);
+	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_CHECKED);
+	g_mode = Mode::TextMode;
 }
 
 void OnClose(WindowHandles windowHandles)

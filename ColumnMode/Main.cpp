@@ -289,6 +289,12 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case ID_EDIT_DELETE:
 			OnDelete(g_windowHandles);
 			break;
+		case ID_OPTIONS_DIAGRAMMODE:
+			OnDiagramMode(g_windowHandles);
+			break;
+		case ID_OPTIONS_TEXTMODE:
+			OnTextMode(g_windowHandles);
+			break;
 		case ID_FILE_REFRESH:
 			OnRefresh(g_windowHandles);
 			break;

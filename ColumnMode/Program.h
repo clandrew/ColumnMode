@@ -41,6 +41,8 @@ void OnRefresh(WindowHandles windowHandles);
 void OnPrint(WindowHandles windowHandles);
 void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
+void OnDiagramMode(WindowHandles windowHandles);
+void OnTextMode(WindowHandles windowHandles);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
