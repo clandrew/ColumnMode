@@ -2213,7 +2213,17 @@ void OnPrint(WindowHandles windowHandles)
 void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
 {
 	 HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
-	 HMENU pluginMenu = GetSubMenu(toplevelMenu, 3);//Third menu in the list. Should probably just create it in code
+
+	 int pluginMenuIndex = 2;
+
+#if _DEBUG
+	 wchar_t str[255];
+	 GetMenuString(toplevelMenu, pluginMenuIndex, str, 255, MF_BYPOSITION);
+	 assert(wcscmp(str, L"Plugins") == 0);
+#endif
+
+	 HMENU pluginMenu = GetSubMenu(toplevelMenu, pluginMenuIndex);//Third menu in the list. Should probably just create it in code
+
 	 int numItems = GetMenuItemCount(pluginMenu);
 	 constexpr int seperatorIndex = 1;
 	 for (int i = numItems-1; i > seperatorIndex ; i--)
