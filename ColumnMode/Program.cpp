@@ -64,7 +64,8 @@ struct Action
 		MoveBlockLeft,
 		MoveBlockUp,
 		MoveBlockRight,
-		MoveBlockDown
+		MoveBlockDown,
+		TextModeCarriageReturn
 	};
 	ActionType Type;
 
@@ -1341,7 +1342,7 @@ void OnEnterPressed(WindowHandles windowHandles)
 		{
 			int copiedLineEndIndex = (int)g_allText.length();
 			int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
-			copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
+			copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength); // Need to append padding here?
 
 			g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
 
@@ -1354,15 +1355,16 @@ void OnEnterPressed(WindowHandles windowHandles)
 			int copiedLineEndIndex = g_textLineStarts[caretRow + 1];
 			int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
 			copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
+			std::wstring copiedLineWithPadding = copiedLine;
 			for (int i = copiedLineLength; i < g_maxLineLength; ++i)
 			{
-				copiedLine.append(L" ");
+				copiedLineWithPadding.append(L" ");
 			}
-			copiedLine.push_back(L'\n');
+			copiedLineWithPadding.push_back(L'\n');
 
 			g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
 
-			g_allText.insert(g_textLineStarts[caretRow + 1], copiedLine);
+			g_allText.insert(g_textLineStarts[caretRow + 1], copiedLineWithPadding);
 
 			// All the text line starts have to be updated because we inserted a new row.
 			g_textLineStarts.insert(g_textLineStarts.begin() + caretRow + 1, g_textLineStarts[caretRow + 1]);
@@ -1927,10 +1929,24 @@ void OnUndo(WindowHandles windowHandles)
 	}
 	else if (top.Type == Action::TextModeCarriageReturn)
 	{
+		int del = top.BlockTop;
+
 		// Delete the inserted line - chucked in BlockTop
-		
+		int eraseStart = g_textLineStarts[del];
+		int eraseEnd = g_textLineStarts[del + 1];
+		int eraseLength = eraseEnd - eraseStart;
+		g_allText.erase(eraseStart, eraseLength);
+		g_textLineStarts.erase(g_textLineStarts.begin() + del);
+		for (int i = del; i < g_textLineStarts.size(); ++i)
+		{
+			g_textLineStarts[i] -= g_maxLineLength + 1;
+		}
 
 		// Restore the mangled line
+		for (int i = 0; i < top.OverwrittenChars[0].size(); ++i)
+		{
+			g_allText[top.TextPosition + i] = top.OverwrittenChars[0][i];
+		}
 
 
 		RecreateTextLayout();
