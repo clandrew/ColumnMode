@@ -1931,15 +1931,28 @@ void OnUndo(WindowHandles windowHandles)
 	{
 		int del = top.BlockTop;
 
-		// Delete the inserted line - chucked in BlockTop
-		int eraseStart = g_textLineStarts[del];
-		int eraseEnd = g_textLineStarts[del + 1];
-		int eraseLength = eraseEnd - eraseStart;
-		g_allText.erase(eraseStart, eraseLength);
-		g_textLineStarts.erase(g_textLineStarts.begin() + del);
-		for (int i = del; i < g_textLineStarts.size(); ++i)
+		bool isLastLine = del == g_textLineStarts.size() - 1;
+
+		if (isLastLine)
 		{
-			g_textLineStarts[i] -= g_maxLineLength + 1;
+			int eraseStart = g_textLineStarts[del] - 1; // Delete the newline at the end of the last line
+			int eraseEnd = g_allText.size();
+			int eraseLength = eraseEnd - eraseStart;
+			g_allText.erase(eraseStart, eraseLength);
+			g_textLineStarts.erase(g_textLineStarts.end() - 1);
+		}
+		else
+		{
+			// Delete the inserted line - chucked in BlockTop
+			int eraseStart = g_textLineStarts[del];
+			int eraseEnd = g_textLineStarts[del + 1];
+			int eraseLength = eraseEnd - eraseStart;
+			g_allText.erase(eraseStart, eraseLength);
+			g_textLineStarts.erase(g_textLineStarts.begin() + del);
+			for (int i = del; i < g_textLineStarts.size(); ++i)
+			{
+				g_textLineStarts[i] -= g_maxLineLength + 1;
+			}
 		}
 
 		// Restore the mangled line
@@ -1947,7 +1960,6 @@ void OnUndo(WindowHandles windowHandles)
 		{
 			g_allText[top.TextPosition + i] = top.OverwrittenChars[0][i];
 		}
-
 
 		RecreateTextLayout();
 		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
