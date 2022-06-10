@@ -1392,12 +1392,52 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		int caretRow, caretColumn;
 		GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
 
-		if (caretRow < static_cast<int>(g_textLineStarts.size()) - 1)
+		if (g_mode == Mode::DiagramMode)
 		{
+			if (caretRow < static_cast<int>(g_textLineStarts.size()) - 1)
+			{
+				caretRow++;
+				caretColumn = 0;
+				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
+			}
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			// Insert a line
+			int copiedLineStartIndex = g_textLineStarts[caretRow] + caretColumn;
+			int copiedLineEndIndex = g_textLineStarts[caretRow + 1];
+			int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
+			std::wstring copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
+			for (int i = copiedLineLength; i < g_maxLineLength; ++i)
+			{
+				copiedLine.append(L" ");
+			}
+			copiedLine.push_back(L'\n');
+
+			// Erase what's after the carriage return on the line
+			int eraseStartIndex = g_textLineStarts[caretRow] + caretColumn;
+			int eraseEndIndex = g_textLineStarts[caretRow + 1];
+			int erasedLength = eraseEndIndex - eraseStartIndex - 1;
+			g_allText.replace(eraseStartIndex, erasedLength, erasedLength, L' ');
+
+			int insertIndex = caretRow;
+			g_allText.insert(g_textLineStarts[insertIndex + 1], copiedLine);
+
+			// All the text line starts have to be updated because we inserted a new row.
+			g_textLineStarts.insert(g_textLineStarts.begin() + insertIndex + 1, g_textLineStarts[insertIndex + 1]);
+
+			for (size_t i = insertIndex + 1 + 1; i < g_textLineStarts.size(); ++i)
+			{
+				g_textLineStarts[i] += g_maxLineLength + 1;
+			}
+
 			caretRow++;
 			caretColumn = 0;
 			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
+
+			RecreateTextLayout();
 		}
+
 	}
 	else if (wParam == 16) // Shift key
 	{
