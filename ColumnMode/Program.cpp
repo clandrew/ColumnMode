@@ -1444,13 +1444,12 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 				}
 			}
 
-
+			RecreateTextLayout();
 
 			caretRow++;
 			caretColumn = 0;
 			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 
-			RecreateTextLayout();
 		}
 
 	}
