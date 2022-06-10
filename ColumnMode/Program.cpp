@@ -1316,6 +1316,83 @@ void WriteCharacterAtCaret(wchar_t chr, WindowHandles windowHandles)
 	}
 }
 
+void OnEnterPressed(WindowHandles windowHandles)
+{
+	int caretRow, caretColumn;
+	GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+
+	if (g_mode == Mode::DiagramMode)
+	{
+		if (caretRow < static_cast<int>(g_textLineStarts.size()) - 1)
+		{
+			caretRow++;
+			caretColumn = 0;
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
+		}
+	}
+	else if (g_mode == Mode::TextMode)
+	{
+		// Insert a line
+		std::wstring copiedLine;
+		bool isAtLastLine = caretRow == g_textLineStarts.size() - 1;
+		int copiedLineStartIndex = g_textLineStarts[caretRow] + caretColumn;
+
+		if (isAtLastLine)
+		{
+			int copiedLineEndIndex = (int)g_allText.length();
+			int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
+			copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
+
+			g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
+
+			g_allText.append(L"\n");
+			g_textLineStarts.push_back((int)g_allText.length());
+			g_allText.append(copiedLine);
+		}
+		else
+		{
+			int copiedLineEndIndex = g_textLineStarts[caretRow + 1];
+			int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
+			copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
+			for (int i = copiedLineLength; i < g_maxLineLength; ++i)
+			{
+				copiedLine.append(L" ");
+			}
+			copiedLine.push_back(L'\n');
+
+			g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
+
+			g_allText.insert(g_textLineStarts[caretRow + 1], copiedLine);
+
+			// All the text line starts have to be updated because we inserted a new row.
+			g_textLineStarts.insert(g_textLineStarts.begin() + caretRow + 1, g_textLineStarts[caretRow + 1]);
+
+			for (size_t i = caretRow + 1 + 1; i < g_textLineStarts.size(); ++i)
+			{
+				g_textLineStarts[i] += g_maxLineLength + 1;
+			}
+		}
+
+		Action a{};
+		a.Type = Action::TextModeCarriageReturn;
+		std::vector<wchar_t> overwrittenChars;
+		for (size_t i = 0; i < copiedLine.length(); ++i)
+		{
+			overwrittenChars.push_back(copiedLine[i]);
+		}
+		a.OverwrittenChars.push_back(overwrittenChars);
+		a.TextPosition = g_textLineStarts[caretRow] + caretColumn;
+		a.BlockTop = caretRow + 1;
+		AddAction(windowHandles, a);
+
+		RecreateTextLayout();
+
+		caretRow++;
+		caretColumn = 0;
+		SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
+	}
+}
+
 void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_isFileLoaded)
@@ -1389,69 +1466,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 13) // Enter
 	{
-		int caretRow, caretColumn;
-		GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
-
-		if (g_mode == Mode::DiagramMode)
-		{
-			if (caretRow < static_cast<int>(g_textLineStarts.size()) - 1)
-			{
-				caretRow++;
-				caretColumn = 0;
-				SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
-			}
-		}
-		else if (g_mode == Mode::TextMode)
-		{
-			// Insert a line
-			std::wstring copiedLine;
-			bool isAtLastLine = caretRow == g_textLineStarts.size() - 1;
-			int copiedLineStartIndex = g_textLineStarts[caretRow] + caretColumn;
-
-			if (isAtLastLine)
-			{
-				int copiedLineEndIndex = g_allText.length();
-				int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
-				copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
-
-				g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
-
-				g_allText.append(L"\n");
-				g_textLineStarts.push_back(g_allText.length());
-				g_allText.append(copiedLine);
-			}
-			else
-			{
-				int copiedLineEndIndex = g_textLineStarts[caretRow + 1];
-				int copiedLineLength = copiedLineEndIndex - copiedLineStartIndex - 1;
-				copiedLine = g_allText.substr(g_textLineStarts[caretRow] + caretColumn, copiedLineLength);
-				for (int i = copiedLineLength; i < g_maxLineLength; ++i)
-				{
-					copiedLine.append(L" ");
-				}
-				copiedLine.push_back(L'\n');
-
-				g_allText.replace(copiedLineStartIndex, copiedLineLength, copiedLineLength, L' ');
-
-				g_allText.insert(g_textLineStarts[caretRow + 1], copiedLine);
-
-				// All the text line starts have to be updated because we inserted a new row.
-				g_textLineStarts.insert(g_textLineStarts.begin() + caretRow + 1, g_textLineStarts[caretRow + 1]);
-
-				for (size_t i = caretRow + 1 + 1; i < g_textLineStarts.size(); ++i)
-				{
-					g_textLineStarts[i] += g_maxLineLength + 1;
-				}
-			}
-
-			RecreateTextLayout();
-
-			caretRow++;
-			caretColumn = 0;
-			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
-
-		}
-
+		OnEnterPressed(windowHandles);
 	}
 	else if (wParam == 16) // Shift key
 	{
@@ -1909,6 +1924,17 @@ void OnUndo(WindowHandles windowHandles)
 		g_current = top.DragData[1];
 		EnableTextSelectionRectangle(windowHandles);
 		UpdateTextSelectionRectangle();
+	}
+	else if (top.Type == Action::TextModeCarriageReturn)
+	{
+		// Delete the inserted line - chucked in BlockTop
+		
+
+		// Restore the mangled line
+
+
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
 	else
 	{
