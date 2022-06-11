@@ -55,7 +55,8 @@ struct Action
 {
 	enum ActionType
 	{
-		WriteCharacter,
+		WriteCharacter_DiagramMode,
+		WriteCharacter_TextMode,
 		WriteTab,
 		Backspace,
 		DeleteBlock,
@@ -1405,18 +1406,55 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	if (g_keyOutput[wParam].Valid)
 	{
 		DisableTextSelectionRectangle(windowHandles);
-		
-		Action a;
-		a.Type = Action::WriteCharacter;
-		std::vector<wchar_t> line;
-		line.push_back(g_allText[g_caretCharacterIndex]);
-		a.OverwrittenChars.push_back(line);
-		a.TextPosition = g_caretCharacterIndex;
-
-		AddAction(windowHandles, a);
 
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
-		WriteCharacterAtCaret(chr, windowHandles);
+
+		if (g_mode == Mode::DiagramMode)
+		{
+			Action a;
+			a.Type = Action::WriteCharacter_DiagramMode;
+
+			std::vector<wchar_t> line;
+			line.push_back(g_allText[g_caretCharacterIndex]);
+			a.OverwrittenChars.push_back(line);
+			a.TextPosition = g_caretCharacterIndex;
+			AddAction(windowHandles, a);
+
+			WriteCharacterAtCaret(chr, windowHandles);
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			int caretRow, caretColumn;
+			GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+
+			Action a{};
+			a.Type = Action::WriteCharacter_TextMode;
+			AddAction(windowHandles, a);
+
+			int startIndex = g_caretCharacterIndex;
+			int endIndex;
+			if (caretRow == g_textLineStarts.size() - 1)
+			{
+				endIndex = g_allText.length();
+			}
+			else
+			{
+				endIndex = g_textLineStarts[caretRow + 1] - 1;
+			}
+
+			// Move all characters to the right
+			for (int i = endIndex - 1 ; i > startIndex; --i)
+			{
+				g_allText[i] = g_allText[i - 1];
+			}
+
+			// Put a letter at the caret
+			g_allText[g_caretCharacterIndex] = chr;
+			RecreateTextLayout();
+
+			caretColumn++;
+			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
+		}
 	}
 	else if (wParam == 9) // Tab
 	{
@@ -1714,7 +1752,7 @@ void OnUndo(WindowHandles windowHandles)
 	auto const& top = g_undoBuffer.back();
 	
 	// Pop item off stack
-	if (top.Type == Action::WriteCharacter)
+	if (top.Type == Action::WriteCharacter_DiagramMode)
 	{
 		g_allText[top.TextPosition] = top.OverwrittenChars[0][0];
 		RecreateTextLayout();
