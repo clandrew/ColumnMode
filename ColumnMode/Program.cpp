@@ -227,6 +227,18 @@ void GetRowAndColumnFromCharacterPosition(UINT32 characterPosition, int* row, in
 	}
 }
 
+// true if there is a valid character position at row, column. 
+// outCharacterPosition will be set if true, else it will be the value passed in
+bool GetCharacterPositionFromRowAndColumn(int row, int column, UINT32& outCharacterPosition)
+{
+	if (!IsValidPosition(row, column))
+	{
+		return false;
+	}
+	outCharacterPosition = g_textLineStarts[row] + column;
+	return true;
+}
+
 static D2D1_SIZE_U GetWindowSize(HWND hwnd)
 {
 	RECT clientRect{};
@@ -1486,22 +1498,104 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 8) // Backspace
 	{
-		DisableTextSelectionRectangle(windowHandles);
-
-		if (g_caretCharacterIndex > 0)
+		if (g_mode == Mode::DiagramMode)
 		{
-			SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+			DisableTextSelectionRectangle(windowHandles);
+			if (g_caretCharacterIndex > 0)
+			{
+				SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+			}
+
+			Action a;
+			a.Type = Action::Backspace;
+			std::vector<wchar_t> line;
+			line.push_back(g_allText[g_caretCharacterIndex]);
+			a.OverwrittenChars.push_back(line);
+			a.TextPosition = g_caretCharacterIndex;
+			AddAction(windowHandles, a);
+
+			g_allText[g_caretCharacterIndex] = L' ';
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			int startIndex, endIndex;
+			if (g_hasTextSelectionRectangle)
+			{
+				DeleteBlock(windowHandles);
+				SignedRect selection = GetTextSelectionRegion();
+				DisableTextSelectionRectangle(windowHandles);
+				UINT characterPos = 0;
+
+				if (GetCharacterPositionFromRowAndColumn(selection.Top, selection.Left, characterPos))
+				{
+					SetCaretCharacterIndex(characterPos, windowHandles.StatusBarLabel);
+				}
+				for (int row = selection.Top; row <= selection.Bottom; row++)
+				{
+					startIndex = g_textLineStarts[row] + selection.Left;
+					if (row == g_textLineStarts.size() - 1)
+					{
+						endIndex = static_cast<int>(g_allText.length());
+					}
+					else
+					{
+						endIndex = g_textLineStarts[row + 1] - 1;
+					}
+					int delta = selection.Right - selection.Left + 1;
+					for (int i = startIndex; i < endIndex - 1; i++)
+					{
+						if (i + delta < endIndex - 1)
+						{
+							g_allText[i] = g_allText[i+delta];
+						}
+						else
+						{
+							g_allText[i] = L' ';
+						}
+						
+					}
+					g_allText[endIndex - 1] = L' ';
+					//TODO log action
+				}
+			}
+			else
+			{
+				if (g_caretCharacterIndex > 0)
+				{
+					int caretRow, caretColumn;
+					GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+					startIndex = g_caretCharacterIndex;
+					if (caretRow == g_textLineStarts.size() - 1)
+					{
+						endIndex = static_cast<int>(g_allText.length());
+					}
+					else
+					{
+						endIndex = g_textLineStarts[caretRow + 1] - 1;
+					}
+					SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+					Action a;
+					a.Type = Action::Backspace;
+					std::vector<wchar_t> line;
+					line.push_back(g_allText[g_caretCharacterIndex]);
+					a.OverwrittenChars.push_back(line);
+					a.TextPosition = g_caretCharacterIndex;
+					AddAction(windowHandles, a);
+					g_allText[g_caretCharacterIndex] = L' ';
+
+					// Move all characters to the right
+					for (int i = startIndex; i < endIndex-1; i++) 
+					{
+						g_allText[i] = g_allText[i + 1];
+					}
+					g_allText[endIndex-1] = L' ';
+
+					//TODO log action
+				}
+			}
 		}
 
-		Action a;
-		a.Type = Action::Backspace;
-		std::vector<wchar_t> line;
-		line.push_back(g_allText[g_caretCharacterIndex]);
-		a.OverwrittenChars.push_back(line);
-		a.TextPosition = g_caretCharacterIndex;
-		AddAction(windowHandles, a);
-
-		g_allText[g_caretCharacterIndex] = L' ';
+		
 		RecreateTextLayout();
 	}
 	else if (wParam == 13) // Enter
