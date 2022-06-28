@@ -1435,7 +1435,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			int endIndex;
 			if (caretRow == g_textLineStarts.size() - 1)
 			{
-				endIndex = g_allText.length();
+				endIndex = static_cast<int>(g_allText.length());
 			}
 			else
 			{
@@ -1974,7 +1974,7 @@ void OnUndo(WindowHandles windowHandles)
 		if (isLastLine)
 		{
 			int eraseStart = g_textLineStarts[del] - 1; // Delete the newline at the end of the last line
-			int eraseEnd = g_allText.size();
+			int eraseEnd = static_cast<int>(g_allText.size());
 			int eraseLength = eraseEnd - eraseStart;
 			g_allText.erase(eraseStart, eraseLength);
 			g_textLineStarts.erase(g_textLineStarts.end() - 1);
