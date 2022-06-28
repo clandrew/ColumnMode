@@ -642,6 +642,26 @@ void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
 	callbacks.pfnRegisterWindowClass = [](WNDCLASS wc) { return g_windowManager.CreateWindowClass(wc); };
 	callbacks.pfnRegisterWindowClassEx = [](WNDCLASSEX wc) { return g_windowManager.CreateWindowClassEx(wc); };
 	callbacks.pfnOpenWindow = [](CreateWindowArgs args, HWND* hwnd) { return g_windowManager.CreateNewWindow(args, hwnd); };
+	callbacks.pfnRecommendEditMode = [](HANDLE hPlugin, ColumnMode::EDIT_MODE editMode) {
+		Mode mode = static_cast<Mode>(editMode);
+		if (mode == g_mode)
+		{
+			return S_OK;
+		}
+		std::wstring msg = L"A Plugin recommends using ";
+		msg.append(editMode == EDIT_MODE::TextMode ? L"Text Mode" : L"Diagram Mode");
+		msg.append(L" for this file.\nSwitch to that mode?");
+		int res = MessageBox(NULL, msg.c_str(), L"Change edit mode?", MB_YESNO);
+		if (res == IDYES)
+		{
+			switch (editMode)
+			{
+			case EDIT_MODE::DiagramMode: OnDiagramMode(g_windowManager.GetWindowHandles()); break;
+			case EDIT_MODE::TextMode: OnTextMode(g_windowManager.GetWindowHandles()); break;
+			}
+		}
+		return S_OK;
+	};
 	
 	g_pluginManager.Init(callbacks);
 	OnPluginRescan(windowHandles, /*skip rescan*/ true);

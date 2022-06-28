@@ -11,4 +11,10 @@ namespace ColumnMode
 		int width;
 		int height;
 	};
+
+	enum class EDIT_MODE
+	{
+		DiagramMode,
+		TextMode
+	};
 }
