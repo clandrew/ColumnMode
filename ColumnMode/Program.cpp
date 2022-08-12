@@ -280,6 +280,8 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 	// Show label of row and column numbers, 1-indexed.
 	std::wstringstream label;
 	label << L"Row: " << (caretRow+1) << "        Col: " << (caretColumn+1);
+	label << L"        Mode: " << (g_mode == Mode::TextMode ? L"Text" : L"Diagram");
+	
 	Static_SetText(statusBarLabelHwnd, label.str().c_str());
 }
 
@@ -1645,6 +1647,19 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			TryMoveCaretDirectional(windowHandles, wParam);
 		}
 	}
+	else if (wParam == 45) // Insert Key
+	{
+		if (g_mode == Mode::TextMode)
+		{
+			OnDiagramMode(windowHandles);
+		}
+		else
+		{
+			OnTextMode(windowHandles);
+		}
+		//TODO: Pull the label creation into it's own method so we don't need to "set" caret index just to update the label text
+		SetCaretCharacterIndex(g_caretCharacterIndex, windowHandles.StatusBarLabel);
+	}
 	else if (wParam == 46) // Delete key
 	{
 		DisableTextSelectionRectangle(windowHandles);
@@ -1812,8 +1827,10 @@ void OnSave(WindowHandles windowHandles)
 		out << g_allText;
 	}
 
-	MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
-	
+#if _DEBUG
+	//MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
+#endif
+
 	g_hasUnsavedChanges = false;
 	UpdateWindowTitle(windowHandles);
 	g_pluginManager.PF_OnSave_ALL(g_fileFullPath.c_str());
