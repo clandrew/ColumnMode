@@ -2333,6 +2333,12 @@ void OnPaste(WindowHandles windowHandles)
 	AddAction(windowHandles, a);
 
 	RecreateTextLayout();
+
+	if (g_mode == Mode::TextMode)
+	{
+		//move cursor to end of psate
+		SetCaretCharacterIndex(a.TextPosition + static_cast<UINT32>(a.OverwrittenChars[0].size()), windowHandles.StatusBarLabel);
+	}
 }
 
 void OnRefresh(WindowHandles windowHandles)
