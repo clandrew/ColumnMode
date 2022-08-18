@@ -137,7 +137,9 @@ void PluginManager::PF_##name##_ALL parameterList \
 	for (const Plugin& p : m_plugins) \
 	{\
 		if(p.m_pluginFuncs.pfn##name == nullptr) continue;\
-		HRESULT hr = (*p.m_pluginFuncs.pfn##name)parameterNames;\
+		HRESULT hr;\
+		try{hr = (*p.m_pluginFuncs.pfn##name)parameterNames;}\
+		catch(...){hr = E_FAIL;}\
 		if (FAILED(hr))\
 		{\
 			WCHAR msg[128];\
@@ -158,7 +160,8 @@ void PluginManager::PF_##name##_ALL parameterList \
 HRESULT Plugin::##name parameterList \
 {\
 	if(m_pluginFuncs.pfn##name == nullptr) { return S_FALSE; }\
-	return (*m_pluginFuncs.pfn##name)parameterNames; \
+	try{ return (*m_pluginFuncs.pfn##name)parameterNames;} \
+	catch (...) {return E_FAIL;}\
 }
 
 #include "PluginFunctions.inl"
