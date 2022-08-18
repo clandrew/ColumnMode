@@ -769,7 +769,7 @@ void DrawDocument()
 		g_hwndRenderTarget->FillRectangle(D2D1::RectF(
 			layoutPosition.x + g_caretPosition.x,
 			layoutPosition.y + g_caretPosition.y,
-			layoutPosition.x + g_caretPosition.x + g_caretMetrics.width,
+			layoutPosition.x + g_caretPosition.x + (g_mode == Mode::DiagramMode ? g_caretMetrics.width : 2),
 			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
 	}
 
