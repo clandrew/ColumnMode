@@ -1646,6 +1646,10 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	{
 		g_isCtrlDown = true;
 	}
+	else if (wParam == VK_ESCAPE)
+	{
+		DisableTextSelectionRectangle(windowHandles);
+	}
 	else if (wParam >= 37 && wParam <= 40)
 	{
 		if (g_isShiftDown)
