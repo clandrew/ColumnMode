@@ -58,7 +58,8 @@ struct Action
 		WriteCharacter_DiagramMode,
 		WriteCharacter_TextMode,
 		WriteTab,
-		Backspace,
+		Backspace_DiagramMode,
+		Backspace_TextMode,
 		DeleteBlock,
 		PasteToPosition,
 		PasteToBlock,
@@ -1529,7 +1530,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			}
 
 			Action a;
-			a.Type = Action::Backspace;
+			a.Type = Action::Backspace_DiagramMode;
 			std::vector<wchar_t> line;
 			line.push_back(g_allText[g_caretCharacterIndex]);
 			a.OverwrittenChars.push_back(line);
@@ -1543,10 +1544,12 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			int startIndex, endIndex;
 			if (g_hasTextSelectionRectangle)
 			{
-				DeleteBlock(windowHandles);
+				//DeleteBlock(windowHandles);
 				SignedRect selection = GetTextSelectionRegion();
 				DisableTextSelectionRectangle(windowHandles);
 				UINT characterPos = 0;
+				Action a;
+				a.Type = Action::Backspace_TextMode;
 
 				if (GetCharacterPositionFromRowAndColumn(selection.Top, selection.Left, characterPos))
 				{
@@ -1563,6 +1566,14 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 					{
 						endIndex = g_textLineStarts[row + 1] - 1;
 					}
+
+					std::vector<wchar_t> line;
+					for (int i = startIndex; i < endIndex; i++)
+					{
+						line.push_back(g_allText[i]);
+					}
+					a.OverwrittenChars.push_back(line);
+
 					int delta = selection.Right - selection.Left + 1;
 					for (int i = startIndex; i < endIndex - 1; i++)
 					{
@@ -1577,8 +1588,9 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 						
 					}
 					g_allText[endIndex - 1] = L' ';
-					//TODO log action
 				}
+				a.TextPosition = characterPos;
+				AddAction(windowHandles, a);
 			}
 			else
 			{
@@ -1586,7 +1598,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 				{
 					int caretRow, caretColumn;
 					GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
-					startIndex = g_caretCharacterIndex;
+					startIndex = g_caretCharacterIndex-1;
 					if (caretRow == g_textLineStarts.size() - 1)
 					{
 						endIndex = static_cast<int>(g_allText.length());
@@ -1597,22 +1609,24 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 					}
 					SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
 					Action a;
-					a.Type = Action::Backspace;
+					a.Type = Action::Backspace_TextMode;
 					std::vector<wchar_t> line;
-					line.push_back(g_allText[g_caretCharacterIndex]);
+					for (int i = startIndex; i < endIndex; i++)
+					{
+						line.push_back(g_allText[i]);
+					}
+					
 					a.OverwrittenChars.push_back(line);
-					a.TextPosition = g_caretCharacterIndex;
-					AddAction(windowHandles, a);
-					g_allText[g_caretCharacterIndex] = L' ';
+					a.TextPosition = startIndex;
 
-					// Move all characters to the right
+					// Move all characters to the left
 					for (int i = startIndex; i < endIndex-1; i++) 
 					{
 						g_allText[i] = g_allText[i + 1];
 					}
 					g_allText[endIndex-1] = L' ';
 
-					//TODO log action
+					AddAction(windowHandles, a);
 				}
 			}
 		}
@@ -1900,9 +1914,34 @@ void OnUndo(WindowHandles windowHandles)
 		RecreateTextLayout();
 		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
-	else if (top.Type == Action::Backspace)
+	else if (top.Type == Action::Backspace_DiagramMode)
 	{
 		g_allText[top.TextPosition] = top.OverwrittenChars[0][0];
+		RecreateTextLayout();
+
+		UINT newTextPosition = top.TextPosition;
+
+		if (top.TextPosition < g_allText.length() - 1)
+		{
+			newTextPosition++;
+		}
+		SetCaretCharacterIndex(newTextPosition, windowHandles.StatusBarLabel);
+	}
+	else if (top.Type == Action::Backspace_TextMode)
+	{
+		int caretRow, caretColumn;
+		GetRowAndColumnFromCharacterPosition(top.TextPosition, &caretRow, &caretColumn);
+
+		for (int lineIndex = 0; lineIndex < static_cast<int>(top.OverwrittenChars.size()); lineIndex++)
+		{
+			for (int columnIndex = 0; columnIndex < static_cast<int>(top.OverwrittenChars[lineIndex].size()); ++columnIndex)
+			{
+				TrySetCharacter(
+					caretRow + lineIndex,
+					caretColumn + columnIndex,
+					top.OverwrittenChars[lineIndex][columnIndex]);
+			}
+		}
 		RecreateTextLayout();
 
 		UINT newTextPosition = top.TextPosition;
