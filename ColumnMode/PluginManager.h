@@ -7,6 +7,7 @@ namespace ColumnMode
 	{
 	public:
 		PluginManager();
+		~PluginManager();
 		void Init(ColumnModeCallbacks callbacks);
 		HRESULT ScanForPlugins();
 		HRESULT LoadPlugin(LPCWSTR pluginName);

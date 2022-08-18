@@ -29,6 +29,14 @@ ColumnMode::PluginManager::PluginManager()
 	ScanForPlugins();
 }
 
+ColumnMode::PluginManager::~PluginManager()
+{
+	for (Plugin& plugin : m_plugins)
+	{
+		plugin.OnShutdown();
+	}
+}
+
 void ColumnMode::PluginManager::Init(ColumnModeCallbacks callbacks)
 {
 	m_pluginCallbacks = callbacks;
