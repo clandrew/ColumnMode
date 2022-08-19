@@ -2221,7 +2221,10 @@ void CopySelectionToClipboard()
 		{
 			stringData.push_back(TryGetCharacter(y, x));
 		}
-		stringData.push_back(L'\n');
+		if (y < selection.Bottom)
+		{
+			stringData.push_back(L'\n');
+		}
 	}
 
 	size_t bufferSize = (stringData.size() + 1) * sizeof(wchar_t); // Account for null term
