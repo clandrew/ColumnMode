@@ -41,14 +41,6 @@ ComPtr<IDWriteFactory> g_dwriteFactory;
 ComPtr<IDWriteTextFormat> g_textFormat;
 ComPtr<IDWriteTextLayout> g_textLayout;
 
-struct Drag
-{
-	D2D1_POINT_2F Location;
-	BOOL OverlaysText;
-	BOOL IsTrailing;
-	DWRITE_HIT_TEST_METRICS HitTest;
-};
-
 LayoutInfo g_layoutInfo;
 
 struct Action
@@ -822,6 +814,27 @@ float ClampToRange(float value, float min, float max)
 	return value;
 }
 
+void GetMouseInfo(LPARAM lParam, Drag& mouseInfo)
+{
+	int xPos = GET_X_LPARAM(lParam);
+	int yPos = GET_Y_LPARAM(lParam);
+
+	mouseInfo.Location.x = static_cast<float>(xPos);
+	mouseInfo.Location.y = static_cast<float>(yPos);
+
+	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
+	mouseInfo.Location.x = ClampToRange(mouseInfo.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
+	mouseInfo.Location.y = ClampToRange(mouseInfo.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
+
+	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
+	VerifyHR(g_textLayout->HitTestPoint(
+		mouseInfo.Location.x - layoutPosition.x,
+		mouseInfo.Location.y - layoutPosition.y,
+		&mouseInfo.IsTrailing,
+		&mouseInfo.OverlaysText,
+		&mouseInfo.HitTest));
+}
+
 void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 {
 	if (!g_isFileLoaded)
@@ -830,26 +843,10 @@ void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 	g_isDragging = true;
 	DisableTextSelectionRectangle(windowHandles);
 
-	int xPos = GET_X_LPARAM(lParam);
-	int yPos = GET_Y_LPARAM(lParam);
-
-	g_start.Location.x = static_cast<float>(xPos);
-	g_start.Location.y = static_cast<float>(yPos);
-
-	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
-	g_start.Location.x = ClampToRange(g_start.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
-	g_start.Location.y = ClampToRange(g_start.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
+	GetMouseInfo(lParam, g_start);
 
 	g_current.Location.x = g_start.Location.x;
 	g_current.Location.y = g_start.Location.y;
-
-	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
-	VerifyHR(g_textLayout->HitTestPoint(
-		g_start.Location.x - layoutPosition.x,
-		g_start.Location.y - layoutPosition.y,
-		&g_start.IsTrailing, 
-		&g_start.OverlaysText, 
-		&g_start.HitTest));
 
 	if (g_start.OverlaysText)
 	{
@@ -901,6 +898,46 @@ static void UpdateTextSelectionRectangle()
 	g_textSelectionRectangle.bottom += layoutPosition.y;
 }
 
+void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam)
+{
+	if (g_mode == Mode::TextMode)
+	{
+		Drag mouseInfo;
+		GetMouseInfo(lParam, mouseInfo);
+		if (mouseInfo.OverlaysText)
+		{
+			int left, right;
+			left = right = mouseInfo.HitTest.textPosition;
+
+			// Do nothing if we selected whitespace
+			if (g_allText[left] == ' ') return;
+
+			int row, col;
+			GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &row, &col);
+
+			int lineStart = g_textLineStarts[row];
+			int lineEnd = g_textLineStarts[row + 1] - 1;
+
+			//Look left
+			while (left >= lineStart && g_allText[left-1] != ' ') { left--; };
+			//look right
+			while (right < lineEnd && g_allText[right+1] != ' ') { right++; };
+
+			g_start = mouseInfo;
+			g_start.HitTest.textPosition = left;
+			left -= mouseInfo.HitTest.textPosition; //left is now a negative offset
+			g_start.HitTest.left = mouseInfo.HitTest.left + left * g_caretMetrics.width;
+
+			g_current = mouseInfo;
+			g_current.HitTest.textPosition = right;
+			right -= mouseInfo.HitTest.textPosition;
+			g_current.HitTest.left = mouseInfo.HitTest.left + right * g_caretMetrics.width;
+			EnableTextSelectionRectangle(windowHandles);
+			UpdateTextSelectionRectangle();
+		}
+	}
+}
+
 static int s_dbgIndex = 0;
 
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
@@ -921,24 +958,7 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 
 	if (g_isDragging)
 	{
-		int xPos = GET_X_LPARAM(lParam);
-		int yPos = GET_Y_LPARAM(lParam);
-
-		g_current.Location.x = static_cast<float>(xPos);
-		g_current.Location.y = static_cast<float>(yPos);
-
-		D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
-		float dontSelectNewlines = 1;
-		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right - dontSelectNewlines);
-		g_current.Location.y = ClampToRange(g_current.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
-
-		D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
-		VerifyHR(g_textLayout->HitTestPoint(
-			g_current.Location.x - layoutPosition.x,
-			g_current.Location.y - layoutPosition.y,
-			&g_current.IsTrailing, 
-			&g_current.OverlaysText, 
-			&g_current.HitTest));
+		GetMouseInfo(lParam, g_current);
 
 		if (g_isDebugBreaking)
 		{

@@ -20,6 +20,7 @@ void OnClose(WindowHandles windowHandles);
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam);
 void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam);
 void OnMouseLeftButtonUp(WindowHandles windowHandles);
+void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam);
 void OnKeyDown(WindowHandles windowHandles, WPARAM wParam);
 void OnKeyUp(WindowHandles windowHandles, WPARAM wParam);
 void OnHorizontalScroll(WindowHandles windowHandles, WPARAM wParam);
@@ -49,3 +50,13 @@ void OnInitializeDocumentProperties(HWND hDlg);
 void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam);
 
 void OnClipboardContentsChanged(WindowHandles windowHandles);
+
+struct Drag
+{
+	D2D1_POINT_2F Location;
+	BOOL OverlaysText;
+	BOOL IsTrailing;
+	DWRITE_HIT_TEST_METRICS HitTest;
+};
+
+void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);

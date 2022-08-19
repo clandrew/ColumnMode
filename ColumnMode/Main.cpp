@@ -111,7 +111,7 @@ void MyRegisterClass(HINSTANCE hInstance)
 
 		wcex.cbSize = sizeof(WNDCLASSEX);
 
-		wcex.style = CS_HREDRAW | CS_VREDRAW;
+		wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
 		wcex.lpfnWndProc = DocumentWndProc;
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
@@ -201,6 +201,11 @@ LRESULT CALLBACK DocumentWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 	case WM_PAINT:
 	{
 		Draw(g_windowHandles);
+	}
+	break;
+	case WM_LBUTTONDBLCLK:
+	{
+		OnMouseLeftButtonDblClick(g_windowHandles, lParam);
 	}
 	break;
 	case WM_LBUTTONDOWN:
