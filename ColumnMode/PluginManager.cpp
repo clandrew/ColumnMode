@@ -100,6 +100,22 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	return S_OK;
 }
 
+HRESULT ColumnMode::PluginManager::UnloadPlugin(LPCWSTR pluginName)
+{
+	Plugin* plugin;
+	if (GetPlugin(pluginName, &plugin))
+	{
+		plugin->OnShutdown();
+		if (!FreeLibrary(plugin->m_hPluginDll))
+		{
+			return E_FAIL;
+		}
+		m_plugins.remove(*plugin);
+		return S_OK;
+	}
+	return S_FALSE;
+}
+
 bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
 {
 	for (Plugin& p : m_plugins)
@@ -125,18 +141,6 @@ bool PluginManager::GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin)
 		}
 	}
 	return false;
-}
-
-bool PluginManager::GetPlugin(UINT pluginId, Plugin** ppPlugin)
-{
-	assert(ppPlugin != nullptr);
-	*ppPlugin = nullptr;
-	if (pluginId > m_plugins.size())
-	{
-		return false;
-	}
-	*ppPlugin = &m_plugins[pluginId];
-	return true;
 }
 
 #define DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\

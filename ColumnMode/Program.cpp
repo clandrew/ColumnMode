@@ -2682,6 +2682,14 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
 			}
 		}
+		else
+		{
+			if (SUCCEEDED(g_pluginManager.UnloadPlugin(buff)))
+			{
+				//uncheck after unload
+				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_UNCHECKED);
+			}
+		}
 		//TODO: Should probably be able to disbale plugins :P
 	}
 	return true;
