@@ -923,19 +923,40 @@ void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam)
 			//look right
 			while (right < lineEnd && g_allText[right+1] != ' ') { right++; };
 
-			g_start = mouseInfo;
-			g_start.HitTest.textPosition = left;
-			left -= mouseInfo.HitTest.textPosition; //left is now a negative offset
-			g_start.HitTest.left = mouseInfo.HitTest.left + left * g_caretMetrics.width;
-
-			g_current = mouseInfo;
-			g_current.HitTest.textPosition = right;
-			right -= mouseInfo.HitTest.textPosition;
-			g_current.HitTest.left = mouseInfo.HitTest.left + right * g_caretMetrics.width;
-			EnableTextSelectionRectangle(windowHandles);
-			UpdateTextSelectionRectangle();
+			SetSelection(left, right - left);
 		}
 	}
+}
+
+//assumes single line selection
+void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* pHitTest)
+{
+	int row, col;
+	GetRowAndColumnFromCharacterPosition(startCharIndex, &row, &col);
+	
+	DWRITE_HIT_TEST_METRICS hitTest;
+	if (pHitTest)
+	{
+		hitTest = *pHitTest;
+	}
+	else
+	{
+		FLOAT hitLeft, hitTop;
+		VerifyHR(g_textLayout->HitTestTextPosition(startCharIndex, false, &hitLeft, &hitTop, &hitTest));
+	}
+
+	g_start.HitTest = hitTest;
+	g_start.Location.x = static_cast<float>(col);
+	g_start.Location.y = static_cast<float>(row);
+
+	g_current.HitTest = hitTest;
+	g_current.HitTest.textPosition += length;
+	g_current.HitTest.left += length * g_caretMetrics.width;
+	g_current.Location.x = static_cast<float>(col + length);
+	g_current.Location.y = static_cast<float>(row);
+
+	EnableTextSelectionRectangle(g_windowManager.GetWindowHandles());
+	UpdateTextSelectionRectangle();
 }
 
 static int s_dbgIndex = 0;

@@ -59,4 +59,7 @@ struct Drag
 	DWRITE_HIT_TEST_METRICS HitTest;
 };
 
-void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);
+void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);//Assumes single line selection
+
+//Assumes single line selection
+void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* hitTest = nullptr);
