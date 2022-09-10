@@ -44,6 +44,7 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);
+void OnFind(HINSTANCE hInst, HWND hWnd);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
@@ -59,7 +60,10 @@ struct Drag
 	DWRITE_HIT_TEST_METRICS HitTest;
 };
 
-void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);//Assumes single line selection
+void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);
+
+
+std::wstring& GetAllText();
 
 //Assumes single line selection
 void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* hitTest = nullptr);

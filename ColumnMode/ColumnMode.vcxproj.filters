@@ -48,6 +48,9 @@
     <ClInclude Include="ColumnModeTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="FindTool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -63,6 +66,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WindowManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FindTool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -294,6 +294,9 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case ID_EDIT_DELETE:
 			OnDelete(g_windowHandles);
 			break;
+		case ID_EDIT_FIND:
+			OnFind(hInst, hWnd);
+			break;
 		case ID_OPTIONS_DIAGRAMMODE:
 			OnDiagramMode(g_windowHandles);
 			break;

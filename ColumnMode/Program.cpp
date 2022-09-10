@@ -5,6 +5,7 @@
 #include "LayoutInfo.h"
 #include "PluginManager.h"
 #include "WindowManager.h"
+#include "FindTool.h"
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
 
@@ -19,6 +20,7 @@ bool g_hasUnsavedChanges;
 
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
+ColumnMode::FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -2267,6 +2269,11 @@ void OnDelete(WindowHandles windowHandles)
 	RecreateTextLayout();
 }
 
+void OnFind(HINSTANCE hInst, HWND hWnd)
+{
+	g_findTool.EnsureDialogCreated(hInst, hWnd);
+}
+
 void OnCut(WindowHandles windowHandles)
 {
 	CopySelectionToClipboard();
@@ -2997,4 +3004,9 @@ void OnClose(WindowHandles windowHandles)
 	}
 
 	DestroyWindow(windowHandles.TopLevel);
+}
+
+std::wstring& GetAllText()
+{
+	return g_allText;
 }
