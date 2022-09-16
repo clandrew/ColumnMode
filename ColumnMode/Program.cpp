@@ -961,6 +961,36 @@ void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* pHitT
 	UpdateTextSelectionRectangle();
 }
 
+void ScrollTo(UINT index)
+{
+	HWND documentHwnd = g_windowManager.GetWindowHandles().Document;
+	auto windowSize = GetWindowSize(documentHwnd);
+
+	DWRITE_HIT_TEST_METRICS hitTest;
+	FLOAT hitLeft, hitTop;
+	VerifyHR(g_textLayout->HitTestTextPosition(index, false, &hitLeft, &hitTop, &hitTest));
+
+	SCROLLINFO scrollInfo{};
+	scrollInfo.cbSize = sizeof(scrollInfo);
+	scrollInfo.fMask = SIF_POS;
+	VerifyBool(GetScrollInfo(documentHwnd, SB_VERT, &scrollInfo));
+
+	float scrollAmount = hitTop - .5f * windowSize.height;
+
+	if (scrollAmount < 0)
+		scrollAmount = 0;
+
+	if (scrollAmount > g_verticalScrollLimit)
+		scrollAmount = g_verticalScrollLimit;
+
+	g_layoutInfo.SetPositionY(-scrollAmount);
+
+	UpdateTextSelectionRectangle();
+
+	scrollInfo.nPos = scrollAmount;
+	SetScrollInfo(documentHwnd, SB_VERT, &scrollInfo, TRUE);
+}
+
 static int s_dbgIndex = 0;
 
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
