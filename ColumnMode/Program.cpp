@@ -5,7 +5,7 @@
 #include "LayoutInfo.h"
 #include "PluginManager.h"
 #include "WindowManager.h"
-#include "FindTool.h"
+
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
 
@@ -3039,4 +3039,9 @@ void OnClose(WindowHandles windowHandles)
 std::wstring& GetAllText()
 {
 	return g_allText;
+}
+
+ColumnMode::FindTool& GetFindTool()
+{
+	return g_findTool;
 }

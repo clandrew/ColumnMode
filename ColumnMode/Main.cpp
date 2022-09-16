@@ -53,11 +53,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Message loop
 	g_done = false;
+	ColumnMode::FindTool& findTool = GetFindTool();
+	HWND findDialogHwnd = NULL;
 	while (!g_done)
 	{
 		const HWND allWindowsForCurrentThread = nullptr;
 		while (PeekMessage(&msg, allWindowsForCurrentThread, 0, 0, PM_REMOVE))
 		{
+			if (findTool.TryGetFindDialogHwnd(&findDialogHwnd) && IsDialogMessage(findDialogHwnd, &msg))
+			{
+				// msg has already been processed by Find dialog
+				continue;
+			}
 			if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 			{
 				TranslateMessage(&msg);
