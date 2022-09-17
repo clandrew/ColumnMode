@@ -1506,13 +1506,19 @@ void OnEnterPressed(WindowHandles windowHandles)
 	}
 }
 
+void CheckModifierKeys()
+{
+	g_isShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+	g_isCtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+}
+
 void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_isFileLoaded)
 		return;
 
 	g_caretBlinkState = 0;
-
+	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
 		DisableTextSelectionRectangle(windowHandles);
@@ -1713,14 +1719,6 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	{
 		OnEnterPressed(windowHandles);
 	}
-	else if (wParam == 16) // Shift key
-	{
-		g_isShiftDown = true;
-	}
-	else if (wParam == 17)
-	{
-		g_isCtrlDown = true;
-	}
 	else if (wParam == VK_ESCAPE)
 	{
 		DisableTextSelectionRectangle(windowHandles);
@@ -1763,15 +1761,8 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 
 void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 {
-	if (wParam == 16) // Shift key
-	{
-		g_isShiftDown = false;
-	}
-	else if (wParam == 17)
-	{
-		g_isCtrlDown = false;
-	}
-	else if (wParam == 19) // Pause
+	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
+	if (wParam == 19) // Pause
 	{
 		g_isDebugBreaking = !g_isDebugBreaking;
 	}
