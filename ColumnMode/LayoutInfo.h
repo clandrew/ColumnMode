@@ -29,12 +29,23 @@ public:
 		return m_layoutPosition;
 	}
 
+	int GetVisibleLineTop()
+	{
+		return (int)roundf(-(m_layoutRectangleInScreenSpaceLockedToPixelCenters.top / m_lineHeight));
+	}
+
+	FLOAT GetLineHeight()
+	{
+		return m_lineHeight;
+	}
+
 	// Setters
 
 	void RefreshLayoutMetrics(IDWriteTextLayout* textLayout)
 	{
 		VerifyHR(textLayout->GetMetrics(&m_layoutMetrics));
 		RefreshLayoutRectangleInScreenSpace();
+		m_lineHeight = m_layoutMetrics.height / m_layoutMetrics.lineCount;
 	}
 
 	void SetPosition(D2D1_POINT_2F const& pt)
@@ -88,4 +99,5 @@ private:
 	D2D1_POINT_2F m_layoutPosition;
 	D2D1_RECT_F m_layoutRectangleInScreenSpace;
 	D2D1_RECT_F m_layoutRectangleInScreenSpaceLockedToPixelCenters;
+	FLOAT m_lineHeight;
 };

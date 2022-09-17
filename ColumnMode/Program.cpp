@@ -43,6 +43,8 @@ ComPtr<IDWriteFactory> g_dwriteFactory;
 ComPtr<IDWriteTextFormat> g_textFormat;
 ComPtr<IDWriteTextLayout> g_textLayout;
 
+D2D1_SIZE_U g_documentWindowSize;
+
 LayoutInfo g_layoutInfo;
 
 struct Action
@@ -271,6 +273,19 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 	g_caretPosition.x = caretPositionX;
 	g_caretPosition.y = caretPositionY;
 	g_caretMetrics = caretMetrics;
+
+	int topVisibleLine = g_layoutInfo.GetVisibleLineTop();
+	int bottomVisibleLine = topVisibleLine + (int)roundf((float)g_documentWindowSize.height / g_layoutInfo.GetLineHeight());
+	bottomVisibleLine -= 1; //Scrollbar takes up one line on bottom
+
+	if (caretRow < g_layoutInfo.GetVisibleLineTop())
+	{
+		ScrollTo(newCharacterIndex, ScrollToStyle::TOP);
+	}
+	else if (caretRow > bottomVisibleLine)
+	{
+		ScrollTo(newCharacterIndex, ScrollToStyle::BOTTOM);
+	}
 
 	// Show label of row and column numbers, 1-indexed.
 	std::wstringstream label;
@@ -570,13 +585,13 @@ void ReleaseDeviceDependentResources()
 
 void CreateDeviceDependentResources(WindowHandles windowHandles)
 {
-	auto windowSize = GetWindowSize(windowHandles.Document);
+	g_documentWindowSize = GetWindowSize(windowHandles.Document);
 
 	DXGI_SWAP_CHAIN_DESC swapChainDescription = {};
 	swapChainDescription.BufferCount = 2;
 	swapChainDescription.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	swapChainDescription.BufferDesc.Width = windowSize.width;
-	swapChainDescription.BufferDesc.Height = windowSize.height;
+	swapChainDescription.BufferDesc.Width = g_documentWindowSize.width;
+	swapChainDescription.BufferDesc.Height = g_documentWindowSize.height;
 	swapChainDescription.OutputWindow = windowHandles.Document;
 	swapChainDescription.Windowed = TRUE;
 	swapChainDescription.SampleDesc.Count = 1;
@@ -963,10 +978,9 @@ void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* pHitT
 	UpdateTextSelectionRectangle();
 }
 
-void ScrollTo(UINT index)
+void ScrollTo(UINT index, ScrollToStyle scrollStyle)
 {
 	HWND documentHwnd = g_windowManager.GetWindowHandles().Document;
-	auto windowSize = GetWindowSize(documentHwnd);
 
 	DWRITE_HIT_TEST_METRICS hitTest;
 	FLOAT hitLeft, hitTop;
@@ -977,7 +991,13 @@ void ScrollTo(UINT index)
 	scrollInfo.fMask = SIF_POS;
 	VerifyBool(GetScrollInfo(documentHwnd, SB_VERT, &scrollInfo));
 
-	float scrollAmount = hitTop - .5f * windowSize.height;
+	float scrollAmount = hitTop;
+	switch(scrollStyle)
+	{
+	case ScrollToStyle::TOP: break;
+	case ScrollToStyle::CENTER: scrollAmount -= .5f * g_documentWindowSize.height; break;
+	case ScrollToStyle::BOTTOM: scrollAmount -= (g_documentWindowSize.height - g_layoutInfo.GetLineHeight()); break; // Account for scrollbar
+	} 
 
 	if (scrollAmount < 0)
 		scrollAmount = 0;
@@ -991,6 +1011,7 @@ void ScrollTo(UINT index)
 
 	scrollInfo.nPos = scrollAmount;
 	SetScrollInfo(documentHwnd, SB_VERT, &scrollInfo, TRUE);
+	InvalidateRect(documentHwnd, nullptr, FALSE);
 }
 
 static int s_dbgIndex = 0;
@@ -1054,8 +1075,8 @@ void OnWindowResize(WindowHandles windowHandles)
 
 	g_hwndRenderTarget->SetTarget(nullptr);
 
-	auto windowSize = GetWindowSize(windowHandles.Document);
-	VerifyHR(g_swapChain->ResizeBuffers(2, windowSize.width, windowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+	g_documentWindowSize = GetWindowSize(windowHandles.Document);
+	VerifyHR(g_swapChain->ResizeBuffers(2, g_documentWindowSize.width, g_documentWindowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
 	
 	SetTargetToBackBuffer();
 	

@@ -62,11 +62,17 @@ struct Drag
 
 void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);
 
-
 std::wstring& GetAllText();
 
 //Assumes single line selection
 void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* hitTest = nullptr);
-void ScrollTo(UINT index);
+
+enum class ScrollToStyle
+{
+	TOP,
+	CENTER,
+	BOTTOM
+};
+void ScrollTo(UINT index, ScrollToStyle scrollStyle = ScrollToStyle::CENTER);
 
 ColumnMode::FindTool& GetFindTool();

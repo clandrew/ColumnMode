@@ -64,7 +64,7 @@ bool ColumnMode::FindTool::FindNext()
 	else
 	{
 		m_currentIndex = (UINT)(index + 1);
-		ScrollTo(m_currentIndex);
+		ScrollTo(m_currentIndex, ScrollToStyle::CENTER);
 		SetSelection((int)index, (int)m_currentSearch.length()-1);
 	}
 	m_searchingForward = true;
@@ -86,7 +86,7 @@ bool ColumnMode::FindTool::FindPrev()
 	else
 	{
 		m_currentIndex = (UINT)(index - 1);
-		ScrollTo(m_currentIndex);
+		ScrollTo(m_currentIndex, ScrollToStyle::CENTER);
 		SetSelection((int)index, (int)m_currentSearch.length() - 1);
 	}
 	m_searchingForward = false;
