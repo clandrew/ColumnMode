@@ -1329,7 +1329,7 @@ void TryMoveViewWithKeyboard(WPARAM wParam)
 	}
 	else if (wParam == 38)
 	{
-		g_layoutInfo.AdjustPositionY(100);
+		g_layoutInfo.AdjustPositionY(-100);
 	}
 	else if (wParam == 39)
 	{
