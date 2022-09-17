@@ -421,6 +421,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
 	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	EnableMenuItem(windowHandles, ID_FILE_PRINT);
+	EnableMenuItem(windowHandles, ID_EDIT_FIND);
 
 	UpdatePasteEnablement(windowHandles);
 }
@@ -707,6 +708,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
+	DisableMenuItem(windowHandles, ID_EDIT_FIND);
 	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
