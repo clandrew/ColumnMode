@@ -57,6 +57,7 @@ struct Action
 		Backspace_DiagramMode,
 		Backspace_TextMode,
 		DeleteBlock,
+		DeleteCharacter_TextMode,
 		PasteToPosition,
 		PasteToBlock,
 		MoveBlockLeft,
@@ -1780,8 +1781,47 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 46) // Delete key
 	{
-		DisableTextSelectionRectangle(windowHandles);
-		DeleteBlock(windowHandles);
+		if(g_hasTextSelectionRectangle)
+		{
+			DisableTextSelectionRectangle(windowHandles);
+			DeleteBlock(windowHandles);
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			if (g_caretCharacterIndex > 0)
+			{
+				int startIndex, endIndex, caretRow, caretColumn;
+				GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+				startIndex = g_caretCharacterIndex;
+				if (caretRow == g_textLineStarts.size() - 1)
+				{
+					endIndex = static_cast<int>(g_allText.length());
+				}
+				else
+				{
+					endIndex = g_textLineStarts[caretRow + 1] - 1;
+				}
+				Action a;
+				a.Type = Action::DeleteCharacter_TextMode;
+				std::vector<wchar_t> line;
+				for (int i = startIndex; i < endIndex; i++)
+				{
+					line.push_back(g_allText[i]);
+				}
+
+				a.OverwrittenChars.push_back(line);
+				a.TextPosition = startIndex;
+
+				// Move all characters to the left
+				for (int i = startIndex; i < endIndex - 1; i++)
+				{
+					g_allText[i] = g_allText[i + 1];
+				}
+				g_allText[endIndex - 1] = L' ';
+
+				AddAction(windowHandles, a);
+			}
+		}
 		RecreateTextLayout();
 	}
 }
@@ -2048,6 +2088,24 @@ void OnUndo(WindowHandles windowHandles)
 			newTextPosition++;
 		}
 		SetCaretCharacterIndex(newTextPosition, windowHandles.StatusBarLabel);
+	}
+	else if (top.Type == Action::DeleteCharacter_TextMode)
+	{
+		int caretRow, caretColumn;
+		GetRowAndColumnFromCharacterPosition(top.TextPosition, &caretRow, &caretColumn);
+
+		for (int lineIndex = 0; lineIndex < static_cast<int>(top.OverwrittenChars.size()); lineIndex++)
+		{
+			for (int columnIndex = 0; columnIndex < static_cast<int>(top.OverwrittenChars[lineIndex].size()); ++columnIndex)
+			{
+				TrySetCharacter(
+					caretRow + lineIndex,
+					caretColumn + columnIndex,
+					top.OverwrittenChars[lineIndex][columnIndex]);
+			}
+		}
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
 	else if (top.Type == Action::PasteToPosition)
 	{
