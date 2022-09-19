@@ -1709,6 +1709,12 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 					{
 						endIndex = g_textLineStarts[caretRow + 1] - 1;
 					}
+					if (caretColumn == 0)
+					{
+						//don't delete the newline and mess up the document.
+						//TODO: cause this to move everything up a line?
+						return;
+					}
 					SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
 					Action a;
 					a.Type = Action::Backspace_TextMode;
