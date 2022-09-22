@@ -20,6 +20,7 @@ void OnClose(WindowHandles windowHandles);
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam);
 void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam);
 void OnMouseLeftButtonUp(WindowHandles windowHandles);
+void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam);
 void OnKeyDown(WindowHandles windowHandles, WPARAM wParam);
 void OnKeyUp(WindowHandles windowHandles, WPARAM wParam);
 void OnHorizontalScroll(WindowHandles windowHandles, WPARAM wParam);
@@ -43,9 +44,35 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);
+void OnFind(HINSTANCE hInst, HWND hWnd);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
 void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam);
 
 void OnClipboardContentsChanged(WindowHandles windowHandles);
+
+struct Drag
+{
+	D2D1_POINT_2F Location;
+	BOOL OverlaysText;
+	BOOL IsTrailing;
+	DWRITE_HIT_TEST_METRICS HitTest;
+};
+
+void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);
+
+std::wstring& GetAllText();
+
+//Assumes single line selection
+void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* hitTest = nullptr);
+
+enum class ScrollToStyle
+{
+	TOP,
+	CENTER,
+	BOTTOM
+};
+void ScrollTo(UINT index, ScrollToStyle scrollStyle = ScrollToStyle::CENTER);
+
+ColumnMode::FindTool& GetFindTool();

@@ -6,6 +6,7 @@
 #include "PluginManager.h"
 #include "WindowManager.h"
 
+
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
 
 const float g_fontSize = 12.0f;
@@ -19,6 +20,7 @@ bool g_hasUnsavedChanges;
 
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
+ColumnMode::FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -41,13 +43,7 @@ ComPtr<IDWriteFactory> g_dwriteFactory;
 ComPtr<IDWriteTextFormat> g_textFormat;
 ComPtr<IDWriteTextLayout> g_textLayout;
 
-struct Drag
-{
-	D2D1_POINT_2F Location;
-	BOOL OverlaysText;
-	BOOL IsTrailing;
-	DWRITE_HIT_TEST_METRICS HitTest;
-};
+D2D1_SIZE_U g_documentWindowSize;
 
 LayoutInfo g_layoutInfo;
 
@@ -58,8 +54,10 @@ struct Action
 		WriteCharacter_DiagramMode,
 		WriteCharacter_TextMode,
 		WriteTab,
-		Backspace,
+		Backspace_DiagramMode,
+		Backspace_TextMode,
 		DeleteBlock,
+		DeleteCharacter_TextMode,
 		PasteToPosition,
 		PasteToBlock,
 		MoveBlockLeft,
@@ -227,6 +225,18 @@ void GetRowAndColumnFromCharacterPosition(UINT32 characterPosition, int* row, in
 	}
 }
 
+// true if there is a valid character position at row, column. 
+// outCharacterPosition will be set if true, else it will be the value passed in
+bool GetCharacterPositionFromRowAndColumn(int row, int column, UINT32& outCharacterPosition)
+{
+	if (!IsValidPosition(row, column))
+	{
+		return false;
+	}
+	outCharacterPosition = g_textLineStarts[row] + column;
+	return true;
+}
+
 static D2D1_SIZE_U GetWindowSize(HWND hwnd)
 {
 	RECT clientRect{};
@@ -265,9 +275,24 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 	g_caretPosition.y = caretPositionY;
 	g_caretMetrics = caretMetrics;
 
+	int topVisibleLine = g_layoutInfo.GetVisibleLineTop();
+	int bottomVisibleLine = topVisibleLine + (int)roundf((float)g_documentWindowSize.height / g_layoutInfo.GetLineHeight());
+	bottomVisibleLine -= 1; //Scrollbar takes up one line on bottom
+
+	if (caretRow < g_layoutInfo.GetVisibleLineTop())
+	{
+		ScrollTo(newCharacterIndex, ScrollToStyle::TOP);
+	}
+	else if (caretRow > bottomVisibleLine)
+	{
+		ScrollTo(newCharacterIndex, ScrollToStyle::BOTTOM);
+	}
+
 	// Show label of row and column numbers, 1-indexed.
 	std::wstringstream label;
 	label << L"Row: " << (caretRow+1) << "        Col: " << (caretColumn+1);
+	label << L"        Mode: " << (g_mode == Mode::TextMode ? L"Text" : L"Diagram");
+	
 	Static_SetText(statusBarLabelHwnd, label.str().c_str());
 }
 
@@ -412,6 +437,7 @@ void InitializeDocument(WindowHandles windowHandles, LoadOrCreateFileResult cons
 	EnableMenuItem(windowHandles, ID_FILE_SAVEAS);
 	EnableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	EnableMenuItem(windowHandles, ID_FILE_PRINT);
+	EnableMenuItem(windowHandles, ID_EDIT_FIND);
 
 	UpdatePasteEnablement(windowHandles);
 }
@@ -560,13 +586,13 @@ void ReleaseDeviceDependentResources()
 
 void CreateDeviceDependentResources(WindowHandles windowHandles)
 {
-	auto windowSize = GetWindowSize(windowHandles.Document);
+	g_documentWindowSize = GetWindowSize(windowHandles.Document);
 
 	DXGI_SWAP_CHAIN_DESC swapChainDescription = {};
 	swapChainDescription.BufferCount = 2;
 	swapChainDescription.BufferDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	swapChainDescription.BufferDesc.Width = windowSize.width;
-	swapChainDescription.BufferDesc.Height = windowSize.height;
+	swapChainDescription.BufferDesc.Width = g_documentWindowSize.width;
+	swapChainDescription.BufferDesc.Height = g_documentWindowSize.height;
 	swapChainDescription.OutputWindow = windowHandles.Document;
 	swapChainDescription.Windowed = TRUE;
 	swapChainDescription.SampleDesc.Count = 1;
@@ -630,6 +656,26 @@ void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
 	callbacks.pfnRegisterWindowClass = [](WNDCLASS wc) { return g_windowManager.CreateWindowClass(wc); };
 	callbacks.pfnRegisterWindowClassEx = [](WNDCLASSEX wc) { return g_windowManager.CreateWindowClassEx(wc); };
 	callbacks.pfnOpenWindow = [](CreateWindowArgs args, HWND* hwnd) { return g_windowManager.CreateNewWindow(args, hwnd); };
+	callbacks.pfnRecommendEditMode = [](HANDLE hPlugin, ColumnMode::EDIT_MODE editMode) {
+		Mode mode = static_cast<Mode>(editMode);
+		if (mode == g_mode)
+		{
+			return S_OK;
+		}
+		std::wstring msg = L"A Plugin recommends using ";
+		msg.append(editMode == EDIT_MODE::TextMode ? L"Text Mode" : L"Diagram Mode");
+		msg.append(L" for this file.\nSwitch to that mode?");
+		int res = MessageBox(NULL, msg.c_str(), L"Change edit mode?", MB_YESNO);
+		if (res == IDYES)
+		{
+			switch (editMode)
+			{
+			case EDIT_MODE::DiagramMode: OnDiagramMode(g_windowManager.GetWindowHandles()); break;
+			case EDIT_MODE::TextMode: OnTextMode(g_windowManager.GetWindowHandles()); break;
+			}
+		}
+		return S_OK;
+	};
 	
 	g_pluginManager.Init(callbacks);
 	OnPluginRescan(windowHandles, /*skip rescan*/ true);
@@ -678,6 +724,7 @@ void InitGraphics(WindowHandles windowHandles)
 	DisableMenuItem(windowHandles, ID_EDIT_PASTE);
 	DisableMenuItem(windowHandles, ID_EDIT_CUT);
 	DisableMenuItem(windowHandles, ID_EDIT_DELETE);
+	DisableMenuItem(windowHandles, ID_EDIT_FIND);
 	DisableMenuItem(windowHandles, ID_FILE_PROPERTIES);
 	DisableMenuItem(windowHandles, ID_FILE_PRINT);
 	
@@ -734,7 +781,7 @@ void DrawDocument()
 		g_hwndRenderTarget->FillRectangle(D2D1::RectF(
 			layoutPosition.x + g_caretPosition.x,
 			layoutPosition.y + g_caretPosition.y,
-			layoutPosition.x + g_caretPosition.x + g_caretMetrics.width,
+			layoutPosition.x + g_caretPosition.x + (g_mode == Mode::DiagramMode ? g_caretMetrics.width : 2),
 			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
 	}
 
@@ -787,6 +834,27 @@ float ClampToRange(float value, float min, float max)
 	return value;
 }
 
+void GetMouseInfo(LPARAM lParam, Drag& mouseInfo)
+{
+	int xPos = GET_X_LPARAM(lParam);
+	int yPos = GET_Y_LPARAM(lParam);
+
+	mouseInfo.Location.x = static_cast<float>(xPos);
+	mouseInfo.Location.y = static_cast<float>(yPos);
+
+	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
+	mouseInfo.Location.x = ClampToRange(mouseInfo.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
+	mouseInfo.Location.y = ClampToRange(mouseInfo.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
+
+	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
+	VerifyHR(g_textLayout->HitTestPoint(
+		mouseInfo.Location.x - layoutPosition.x,
+		mouseInfo.Location.y - layoutPosition.y,
+		&mouseInfo.IsTrailing,
+		&mouseInfo.OverlaysText,
+		&mouseInfo.HitTest));
+}
+
 void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 {
 	if (!g_isFileLoaded)
@@ -795,26 +863,10 @@ void OnMouseLeftButtonDown(WindowHandles windowHandles, LPARAM lParam)
 	g_isDragging = true;
 	DisableTextSelectionRectangle(windowHandles);
 
-	int xPos = GET_X_LPARAM(lParam);
-	int yPos = GET_Y_LPARAM(lParam);
-
-	g_start.Location.x = static_cast<float>(xPos);
-	g_start.Location.y = static_cast<float>(yPos);
-
-	D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
-	g_start.Location.x = ClampToRange(g_start.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right);
-	g_start.Location.y = ClampToRange(g_start.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
+	GetMouseInfo(lParam, g_start);
 
 	g_current.Location.x = g_start.Location.x;
 	g_current.Location.y = g_start.Location.y;
-
-	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
-	VerifyHR(g_textLayout->HitTestPoint(
-		g_start.Location.x - layoutPosition.x,
-		g_start.Location.y - layoutPosition.y,
-		&g_start.IsTrailing, 
-		&g_start.OverlaysText, 
-		&g_start.HitTest));
 
 	if (g_start.OverlaysText)
 	{
@@ -866,6 +918,103 @@ static void UpdateTextSelectionRectangle()
 	g_textSelectionRectangle.bottom += layoutPosition.y;
 }
 
+void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam)
+{
+	if (g_mode == Mode::TextMode)
+	{
+		Drag mouseInfo;
+		GetMouseInfo(lParam, mouseInfo);
+		if (mouseInfo.OverlaysText)
+		{
+			int left, right;
+			left = right = mouseInfo.HitTest.textPosition;
+
+			// Do nothing if we selected whitespace
+			if (g_allText[left] == ' ') return;
+
+			int row, col;
+			GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &row, &col);
+
+			int lineStart = g_textLineStarts[row];
+			int lineEnd = g_textLineStarts[row + 1] - 1;
+
+			//Look left
+			while (left >= lineStart && g_allText[left-1] != ' ') { left--; };
+			//look right
+			while (right < lineEnd && g_allText[right+1] != ' ') { right++; };
+
+			SetSelection(left, right - left);
+		}
+	}
+}
+
+//assumes single line selection
+void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* pHitTest)
+{
+	int row, col;
+	GetRowAndColumnFromCharacterPosition(startCharIndex, &row, &col);
+	
+	DWRITE_HIT_TEST_METRICS hitTest;
+	if (pHitTest)
+	{
+		hitTest = *pHitTest;
+	}
+	else
+	{
+		FLOAT hitLeft, hitTop;
+		VerifyHR(g_textLayout->HitTestTextPosition(startCharIndex, false, &hitLeft, &hitTop, &hitTest));
+	}
+
+	g_start.HitTest = hitTest;
+	g_start.Location.x = static_cast<float>(col);
+	g_start.Location.y = static_cast<float>(row);
+
+	g_current.HitTest = hitTest;
+	g_current.HitTest.textPosition += length;
+	g_current.HitTest.left += length * g_caretMetrics.width;
+	g_current.Location.x = static_cast<float>(col + length);
+	g_current.Location.y = static_cast<float>(row);
+
+	EnableTextSelectionRectangle(g_windowManager.GetWindowHandles());
+	UpdateTextSelectionRectangle();
+}
+
+void ScrollTo(UINT index, ScrollToStyle scrollStyle)
+{
+	HWND documentHwnd = g_windowManager.GetWindowHandles().Document;
+
+	DWRITE_HIT_TEST_METRICS hitTest;
+	FLOAT hitLeft, hitTop;
+	VerifyHR(g_textLayout->HitTestTextPosition(index, false, &hitLeft, &hitTop, &hitTest));
+
+	SCROLLINFO scrollInfo{};
+	scrollInfo.cbSize = sizeof(scrollInfo);
+	scrollInfo.fMask = SIF_POS;
+	VerifyBool(GetScrollInfo(documentHwnd, SB_VERT, &scrollInfo));
+
+	float scrollAmount = hitTop;
+	switch(scrollStyle)
+	{
+	case ScrollToStyle::TOP: break;
+	case ScrollToStyle::CENTER: scrollAmount -= .5f * g_documentWindowSize.height; break;
+	case ScrollToStyle::BOTTOM: scrollAmount -= (g_documentWindowSize.height - g_layoutInfo.GetLineHeight()); break; // Account for scrollbar
+	} 
+
+	if (scrollAmount < 0)
+		scrollAmount = 0;
+
+	if (scrollAmount > g_verticalScrollLimit)
+		scrollAmount = g_verticalScrollLimit;
+
+	g_layoutInfo.SetPositionY(-scrollAmount);
+
+	UpdateTextSelectionRectangle();
+
+	scrollInfo.nPos = scrollAmount;
+	SetScrollInfo(documentHwnd, SB_VERT, &scrollInfo, TRUE);
+	InvalidateRect(documentHwnd, nullptr, FALSE);
+}
+
 static int s_dbgIndex = 0;
 
 void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
@@ -886,24 +1035,7 @@ void OnMouseMove(WindowHandles windowHandles, WPARAM wParam, LPARAM lParam)
 
 	if (g_isDragging)
 	{
-		int xPos = GET_X_LPARAM(lParam);
-		int yPos = GET_Y_LPARAM(lParam);
-
-		g_current.Location.x = static_cast<float>(xPos);
-		g_current.Location.y = static_cast<float>(yPos);
-
-		D2D1_RECT_F layoutRectangleInScreenSpace = g_layoutInfo.GetLayoutRectangleInScreenSpace();
-		float dontSelectNewlines = 1;
-		g_current.Location.x = ClampToRange(g_current.Location.x, layoutRectangleInScreenSpace.left, layoutRectangleInScreenSpace.right - dontSelectNewlines);
-		g_current.Location.y = ClampToRange(g_current.Location.y, layoutRectangleInScreenSpace.top, layoutRectangleInScreenSpace.bottom);
-
-		D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
-		VerifyHR(g_textLayout->HitTestPoint(
-			g_current.Location.x - layoutPosition.x,
-			g_current.Location.y - layoutPosition.y,
-			&g_current.IsTrailing, 
-			&g_current.OverlaysText, 
-			&g_current.HitTest));
+		GetMouseInfo(lParam, g_current);
 
 		if (g_isDebugBreaking)
 		{
@@ -944,8 +1076,8 @@ void OnWindowResize(WindowHandles windowHandles)
 
 	g_hwndRenderTarget->SetTarget(nullptr);
 
-	auto windowSize = GetWindowSize(windowHandles.Document);
-	VerifyHR(g_swapChain->ResizeBuffers(2, windowSize.width, windowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+	g_documentWindowSize = GetWindowSize(windowHandles.Document);
+	VerifyHR(g_swapChain->ResizeBuffers(2, g_documentWindowSize.width, g_documentWindowSize.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
 	
 	SetTargetToBackBuffer();
 	
@@ -1219,7 +1351,7 @@ void TryMoveViewWithKeyboard(WPARAM wParam)
 	}
 	else if (wParam == 38)
 	{
-		g_layoutInfo.AdjustPositionY(100);
+		g_layoutInfo.AdjustPositionY(-100);
 	}
 	else if (wParam == 39)
 	{
@@ -1396,13 +1528,19 @@ void OnEnterPressed(WindowHandles windowHandles)
 	}
 }
 
+void CheckModifierKeys()
+{
+	g_isShiftDown = GetKeyState(VK_SHIFT) & 0x8000;
+	g_isCtrlDown = GetKeyState(VK_CONTROL) & 0x8000;
+}
+
 void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 {
 	if (!g_isFileLoaded)
 		return;
 
 	g_caretBlinkState = 0;
-
+	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
 		DisableTextSelectionRectangle(windowHandles);
@@ -1435,7 +1573,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			int endIndex;
 			if (caretRow == g_textLineStarts.size() - 1)
 			{
-				endIndex = g_allText.length();
+				endIndex = static_cast<int>(g_allText.length());
 			}
 			else
 			{
@@ -1486,35 +1624,132 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 8) // Backspace
 	{
-		DisableTextSelectionRectangle(windowHandles);
-
-		if (g_caretCharacterIndex > 0)
+		if (g_mode == Mode::DiagramMode)
 		{
-			SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+			DisableTextSelectionRectangle(windowHandles);
+			if (g_caretCharacterIndex > 0)
+			{
+				SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+			}
+
+			Action a;
+			a.Type = Action::Backspace_DiagramMode;
+			std::vector<wchar_t> line;
+			line.push_back(g_allText[g_caretCharacterIndex]);
+			a.OverwrittenChars.push_back(line);
+			a.TextPosition = g_caretCharacterIndex;
+			AddAction(windowHandles, a);
+
+			g_allText[g_caretCharacterIndex] = L' ';
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			int startIndex, endIndex;
+			if (g_hasTextSelectionRectangle)
+			{
+				//DeleteBlock(windowHandles);
+				SignedRect selection = GetTextSelectionRegion();
+				DisableTextSelectionRectangle(windowHandles);
+				UINT characterPos = 0;
+				Action a;
+				a.Type = Action::Backspace_TextMode;
+
+				if (GetCharacterPositionFromRowAndColumn(selection.Top, selection.Left, characterPos))
+				{
+					SetCaretCharacterIndex(characterPos, windowHandles.StatusBarLabel);
+				}
+				for (int row = selection.Top; row <= selection.Bottom; row++)
+				{
+					startIndex = g_textLineStarts[row] + selection.Left;
+					if (row == g_textLineStarts.size() - 1)
+					{
+						endIndex = static_cast<int>(g_allText.length());
+					}
+					else
+					{
+						endIndex = g_textLineStarts[row + 1] - 1;
+					}
+
+					std::vector<wchar_t> line;
+					for (int i = startIndex; i < endIndex; i++)
+					{
+						line.push_back(g_allText[i]);
+					}
+					a.OverwrittenChars.push_back(line);
+
+					int delta = selection.Right - selection.Left + 1;
+					for (int i = startIndex; i < endIndex - 1; i++)
+					{
+						if (i + delta < endIndex - 1)
+						{
+							g_allText[i] = g_allText[i+delta];
+						}
+						else
+						{
+							g_allText[i] = L' ';
+						}
+						
+					}
+					g_allText[endIndex - 1] = L' ';
+				}
+				a.TextPosition = characterPos;
+				AddAction(windowHandles, a);
+			}
+			else
+			{
+				if (g_caretCharacterIndex > 0)
+				{
+					int caretRow, caretColumn;
+					GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+					startIndex = g_caretCharacterIndex-1;
+					if (caretRow == g_textLineStarts.size() - 1)
+					{
+						endIndex = static_cast<int>(g_allText.length());
+					}
+					else
+					{
+						endIndex = g_textLineStarts[caretRow + 1] - 1;
+					}
+					if (caretColumn == 0)
+					{
+						//don't delete the newline and mess up the document.
+						//TODO: cause this to move everything up a line?
+						return;
+					}
+					SetCaretCharacterIndex(g_caretCharacterIndex - 1, windowHandles.StatusBarLabel);
+					Action a;
+					a.Type = Action::Backspace_TextMode;
+					std::vector<wchar_t> line;
+					for (int i = startIndex; i < endIndex; i++)
+					{
+						line.push_back(g_allText[i]);
+					}
+					
+					a.OverwrittenChars.push_back(line);
+					a.TextPosition = startIndex;
+
+					// Move all characters to the left
+					for (int i = startIndex; i < endIndex-1; i++) 
+					{
+						g_allText[i] = g_allText[i + 1];
+					}
+					g_allText[endIndex-1] = L' ';
+
+					AddAction(windowHandles, a);
+				}
+			}
 		}
 
-		Action a;
-		a.Type = Action::Backspace;
-		std::vector<wchar_t> line;
-		line.push_back(g_allText[g_caretCharacterIndex]);
-		a.OverwrittenChars.push_back(line);
-		a.TextPosition = g_caretCharacterIndex;
-		AddAction(windowHandles, a);
-
-		g_allText[g_caretCharacterIndex] = L' ';
+		
 		RecreateTextLayout();
 	}
 	else if (wParam == 13) // Enter
 	{
 		OnEnterPressed(windowHandles);
 	}
-	else if (wParam == 16) // Shift key
+	else if (wParam == VK_ESCAPE)
 	{
-		g_isShiftDown = true;
-	}
-	else if (wParam == 17)
-	{
-		g_isCtrlDown = true;
+		DisableTextSelectionRectangle(windowHandles);
 	}
 	else if (wParam >= 37 && wParam <= 40)
 	{
@@ -1531,25 +1766,70 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			TryMoveCaretDirectional(windowHandles, wParam);
 		}
 	}
+	else if (wParam == 45) // Insert Key
+	{
+		if (g_mode == Mode::TextMode)
+		{
+			OnDiagramMode(windowHandles);
+		}
+		else
+		{
+			OnTextMode(windowHandles);
+		}
+		//TODO: Pull the label creation into it's own method so we don't need to "set" caret index just to update the label text
+		SetCaretCharacterIndex(g_caretCharacterIndex, windowHandles.StatusBarLabel);
+	}
 	else if (wParam == 46) // Delete key
 	{
-		DisableTextSelectionRectangle(windowHandles);
-		DeleteBlock(windowHandles);
+		if(g_hasTextSelectionRectangle)
+		{
+			DisableTextSelectionRectangle(windowHandles);
+			DeleteBlock(windowHandles);
+		}
+		else if (g_mode == Mode::TextMode)
+		{
+			if (g_caretCharacterIndex > 0)
+			{
+				int startIndex, endIndex, caretRow, caretColumn;
+				GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
+				startIndex = g_caretCharacterIndex;
+				if (caretRow == g_textLineStarts.size() - 1)
+				{
+					endIndex = static_cast<int>(g_allText.length());
+				}
+				else
+				{
+					endIndex = g_textLineStarts[caretRow + 1] - 1;
+				}
+				Action a;
+				a.Type = Action::DeleteCharacter_TextMode;
+				std::vector<wchar_t> line;
+				for (int i = startIndex; i < endIndex; i++)
+				{
+					line.push_back(g_allText[i]);
+				}
+
+				a.OverwrittenChars.push_back(line);
+				a.TextPosition = startIndex;
+
+				// Move all characters to the left
+				for (int i = startIndex; i < endIndex - 1; i++)
+				{
+					g_allText[i] = g_allText[i + 1];
+				}
+				g_allText[endIndex - 1] = L' ';
+
+				AddAction(windowHandles, a);
+			}
+		}
 		RecreateTextLayout();
 	}
 }
 
 void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 {
-	if (wParam == 16) // Shift key
-	{
-		g_isShiftDown = false;
-	}
-	else if (wParam == 17)
-	{
-		g_isCtrlDown = false;
-	}
-	else if (wParam == 19) // Pause
+	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
+	if (wParam == 19) // Pause
 	{
 		g_isDebugBreaking = !g_isDebugBreaking;
 	}
@@ -1698,8 +1978,10 @@ void OnSave(WindowHandles windowHandles)
 		out << g_allText;
 	}
 
-	MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
-	
+#if _DEBUG
+	//MessageBox(nullptr, L"Save completed.", L"ColumnMode", MB_OK);
+#endif
+
 	g_hasUnsavedChanges = false;
 	UpdateWindowTitle(windowHandles);
 	g_pluginManager.PF_OnSave_ALL(g_fileFullPath.c_str());
@@ -1769,7 +2051,7 @@ void OnUndo(WindowHandles windowHandles)
 		RecreateTextLayout();
 		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
-	else if (top.Type == Action::Backspace)
+	else if (top.Type == Action::Backspace_DiagramMode)
 	{
 		g_allText[top.TextPosition] = top.OverwrittenChars[0][0];
 		RecreateTextLayout();
@@ -1781,6 +2063,49 @@ void OnUndo(WindowHandles windowHandles)
 			newTextPosition++;
 		}
 		SetCaretCharacterIndex(newTextPosition, windowHandles.StatusBarLabel);
+	}
+	else if (top.Type == Action::Backspace_TextMode)
+	{
+		int caretRow, caretColumn;
+		GetRowAndColumnFromCharacterPosition(top.TextPosition, &caretRow, &caretColumn);
+
+		for (int lineIndex = 0; lineIndex < static_cast<int>(top.OverwrittenChars.size()); lineIndex++)
+		{
+			for (int columnIndex = 0; columnIndex < static_cast<int>(top.OverwrittenChars[lineIndex].size()); ++columnIndex)
+			{
+				TrySetCharacter(
+					caretRow + lineIndex,
+					caretColumn + columnIndex,
+					top.OverwrittenChars[lineIndex][columnIndex]);
+			}
+		}
+		RecreateTextLayout();
+
+		UINT newTextPosition = top.TextPosition;
+
+		if (top.TextPosition < g_allText.length() - 1)
+		{
+			newTextPosition++;
+		}
+		SetCaretCharacterIndex(newTextPosition, windowHandles.StatusBarLabel);
+	}
+	else if (top.Type == Action::DeleteCharacter_TextMode)
+	{
+		int caretRow, caretColumn;
+		GetRowAndColumnFromCharacterPosition(top.TextPosition, &caretRow, &caretColumn);
+
+		for (int lineIndex = 0; lineIndex < static_cast<int>(top.OverwrittenChars.size()); lineIndex++)
+		{
+			for (int columnIndex = 0; columnIndex < static_cast<int>(top.OverwrittenChars[lineIndex].size()); ++columnIndex)
+			{
+				TrySetCharacter(
+					caretRow + lineIndex,
+					caretColumn + columnIndex,
+					top.OverwrittenChars[lineIndex][columnIndex]);
+			}
+		}
+		RecreateTextLayout();
+		SetCaretCharacterIndex(top.TextPosition, windowHandles.StatusBarLabel);
 	}
 	else if (top.Type == Action::PasteToPosition)
 	{
@@ -1974,7 +2299,7 @@ void OnUndo(WindowHandles windowHandles)
 		if (isLastLine)
 		{
 			int eraseStart = g_textLineStarts[del] - 1; // Delete the newline at the end of the last line
-			int eraseEnd = g_allText.size();
+			int eraseEnd = static_cast<int>(g_allText.size());
 			int eraseLength = eraseEnd - eraseStart;
 			g_allText.erase(eraseStart, eraseLength);
 			g_textLineStarts.erase(g_textLineStarts.end() - 1);
@@ -2027,7 +2352,10 @@ void CopySelectionToClipboard()
 		{
 			stringData.push_back(TryGetCharacter(y, x));
 		}
-		stringData.push_back(L'\n');
+		if (y < selection.Bottom)
+		{
+			stringData.push_back(L'\n');
+		}
 	}
 
 	size_t bufferSize = (stringData.size() + 1) * sizeof(wchar_t); // Account for null term
@@ -2047,6 +2375,11 @@ void OnDelete(WindowHandles windowHandles)
 	DeleteBlock(windowHandles);
 
 	RecreateTextLayout();
+}
+
+void OnFind(HINSTANCE hInst, HWND hWnd)
+{
+	g_findTool.EnsureDialogCreated(hInst, hWnd);
 }
 
 void OnCut(WindowHandles windowHandles)
@@ -2163,6 +2496,12 @@ void OnPaste(WindowHandles windowHandles)
 	AddAction(windowHandles, a);
 
 	RecreateTextLayout();
+
+	if (g_mode == Mode::TextMode)
+	{
+		//move cursor to end of psate
+		SetCaretCharacterIndex(a.TextPosition + static_cast<UINT32>(a.OverwrittenChars[0].size()), windowHandles.StatusBarLabel);
+	}
 }
 
 void OnRefresh(WindowHandles windowHandles)
@@ -2479,6 +2818,14 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
 			}
 		}
+		else
+		{
+			if (SUCCEEDED(g_pluginManager.UnloadPlugin(buff)))
+			{
+				//uncheck after unload
+				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_UNCHECKED);
+			}
+		}
 		//TODO: Should probably be able to disbale plugins :P
 	}
 	return true;
@@ -2765,4 +3112,14 @@ void OnClose(WindowHandles windowHandles)
 	}
 
 	DestroyWindow(windowHandles.TopLevel);
+}
+
+std::wstring& GetAllText()
+{
+	return g_allText;
+}
+
+ColumnMode::FindTool& GetFindTool()
+{
+	return g_findTool;
 }

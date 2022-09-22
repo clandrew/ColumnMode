@@ -53,11 +53,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Message loop
 	g_done = false;
+	ColumnMode::FindTool& findTool = GetFindTool();
+	HWND findDialogHwnd = NULL;
 	while (!g_done)
 	{
 		const HWND allWindowsForCurrentThread = nullptr;
 		while (PeekMessage(&msg, allWindowsForCurrentThread, 0, 0, PM_REMOVE))
 		{
+			if (findTool.TryGetFindDialogHwnd(&findDialogHwnd) && IsDialogMessage(findDialogHwnd, &msg))
+			{
+				// msg has already been processed by Find dialog
+				continue;
+			}
 			if (!TranslateAccelerator(msg.hwnd, hAccelTable, &msg))
 			{
 				TranslateMessage(&msg);
@@ -111,7 +118,7 @@ void MyRegisterClass(HINSTANCE hInstance)
 
 		wcex.cbSize = sizeof(WNDCLASSEX);
 
-		wcex.style = CS_HREDRAW | CS_VREDRAW;
+		wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
 		wcex.lpfnWndProc = DocumentWndProc;
 		wcex.cbClsExtra = 0;
 		wcex.cbWndExtra = 0;
@@ -203,6 +210,11 @@ LRESULT CALLBACK DocumentWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		Draw(g_windowHandles);
 	}
 	break;
+	case WM_LBUTTONDBLCLK:
+	{
+		OnMouseLeftButtonDblClick(g_windowHandles, lParam);
+	}
+	break;
 	case WM_LBUTTONDOWN:
 	{
 		OnMouseLeftButtonDown(g_windowHandles, lParam);
@@ -288,6 +300,9 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			break;
 		case ID_EDIT_DELETE:
 			OnDelete(g_windowHandles);
+			break;
+		case ID_EDIT_FIND:
+			OnFind(hInst, hWnd);
 			break;
 		case ID_OPTIONS_DIAGRAMMODE:
 			OnDiagramMode(g_windowHandles);

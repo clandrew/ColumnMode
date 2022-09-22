@@ -7,12 +7,13 @@ namespace ColumnMode
 	{
 	public:
 		PluginManager();
+		~PluginManager();
 		void Init(ColumnModeCallbacks callbacks);
 		HRESULT ScanForPlugins();
 		HRESULT LoadPlugin(LPCWSTR pluginName);
+		HRESULT UnloadPlugin(LPCWSTR pluginName);
 		bool IsPluginLoaded(LPCWSTR pluginName);
 		bool GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin);
-		bool GetPlugin(UINT pluginId, Plugin** ppPlugin);
 		std::vector<std::wstring>& GetAvailablePlugins() { return m_availablePlugins; }
 
 #define DECLARE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterTypeList) void PF_##name##_ALL parameterTypeList;
@@ -21,7 +22,7 @@ namespace ColumnMode
 
 	private:
 		HRESULT EnsureModulePathExists();
-		std::vector<Plugin> m_plugins;
+		std::list<Plugin> m_plugins;
 		std::filesystem::path m_modulesRootPath;
 		ColumnModeCallbacks m_pluginCallbacks;
 		std::vector<std::wstring> m_availablePlugins;
@@ -48,4 +49,6 @@ namespace ColumnMode
 		const PluginFunctions m_pluginFuncs;
 		const std::wstring m_name;
 	};
+
+	static inline bool operator==(const Plugin& lhs, const Plugin& rhs) { return lhs.m_hPlugin == rhs.m_hPlugin; }
 }

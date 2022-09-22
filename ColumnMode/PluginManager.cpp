@@ -29,6 +29,14 @@ ColumnMode::PluginManager::PluginManager()
 	ScanForPlugins();
 }
 
+ColumnMode::PluginManager::~PluginManager()
+{
+	for (Plugin& plugin : m_plugins)
+	{
+		plugin.OnShutdown();
+	}
+}
+
 void ColumnMode::PluginManager::Init(ColumnModeCallbacks callbacks)
 {
 	m_pluginCallbacks = callbacks;
@@ -92,6 +100,22 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	return S_OK;
 }
 
+HRESULT ColumnMode::PluginManager::UnloadPlugin(LPCWSTR pluginName)
+{
+	Plugin* plugin;
+	if (GetPlugin(pluginName, &plugin))
+	{
+		plugin->OnShutdown();
+		if (!FreeLibrary(plugin->m_hPluginDll))
+		{
+			return E_FAIL;
+		}
+		m_plugins.remove(*plugin);
+		return S_OK;
+	}
+	return S_FALSE;
+}
+
 bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
 {
 	for (Plugin& p : m_plugins)
@@ -119,25 +143,15 @@ bool PluginManager::GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin)
 	return false;
 }
 
-bool PluginManager::GetPlugin(UINT pluginId, Plugin** ppPlugin)
-{
-	assert(ppPlugin != nullptr);
-	*ppPlugin = nullptr;
-	if (pluginId > m_plugins.size())
-	{
-		return false;
-	}
-	*ppPlugin = &m_plugins[pluginId];
-	return true;
-}
-
 #define DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
 void PluginManager::PF_##name##_ALL parameterList \
 {\
 	for (const Plugin& p : m_plugins) \
 	{\
 		if(p.m_pluginFuncs.pfn##name == nullptr) continue;\
-		HRESULT hr = (*p.m_pluginFuncs.pfn##name)parameterNames;\
+		HRESULT hr;\
+		try{hr = (*p.m_pluginFuncs.pfn##name)parameterNames;}\
+		catch(...){hr = E_FAIL;}\
 		if (FAILED(hr))\
 		{\
 			WCHAR msg[128];\
@@ -158,7 +172,8 @@ void PluginManager::PF_##name##_ALL parameterList \
 HRESULT Plugin::##name parameterList \
 {\
 	if(m_pluginFuncs.pfn##name == nullptr) { return S_FALSE; }\
-	return (*m_pluginFuncs.pfn##name)parameterNames; \
+	try{ return (*m_pluginFuncs.pfn##name)parameterNames;} \
+	catch (...) {return E_FAIL;}\
 }
 
 #include "PluginFunctions.inl"

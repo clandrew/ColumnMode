@@ -4,10 +4,10 @@
 
 using namespace ColumnMode;
 
-void WindowManager::Init(HINSTANCE hInst, WindowHandles& primaryWindows)
+void WindowManager::Init(HINSTANCE hInst, WindowHandles primaryWindows)
 {
 	m_hInstance = hInst;
-	h_pPrimaryWindows = &primaryWindows;
+	h_PrimaryWindows = primaryWindows;
 }
 
 ATOM ColumnMode::WindowManager::CreateWindowClass(WNDCLASS windowClass)
