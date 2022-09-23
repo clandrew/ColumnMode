@@ -106,6 +106,44 @@ enum class Mode
 	TextMode
 } g_mode;
 
+class StatusBar
+{
+	int m_caretRow;
+	int m_caretColumn;
+	Mode m_mode;
+
+	void RefreshStatusBar(HWND statusBarLabelHwnd)
+	{
+		// Show label of row and column numbers, 1-indexed.
+		std::wstringstream label;
+		label << L"Row: " << (m_caretRow + 1) << "        Col: " << (m_caretColumn + 1);
+		label << L"        Mode: " << (g_mode == Mode::TextMode ? L"Text" : L"Diagram");
+
+		Static_SetText(statusBarLabelHwnd, label.str().c_str());
+	}
+
+public:
+	StatusBar()
+		: m_caretRow(0)
+		, m_caretColumn(0)
+		, m_mode(Mode::DiagramMode)
+	{
+	}
+
+	void CaretPositionChanged(int caretRow, int caretColumn, HWND statusBarLabelHwnd)
+	{
+		m_caretRow = caretRow;
+		m_caretColumn = caretColumn;
+		RefreshStatusBar(statusBarLabelHwnd);
+	}
+
+	void ModeChanged(Mode newMode, HWND statusBarLabelHwnd)
+	{
+		m_mode = newMode;
+		RefreshStatusBar(statusBarLabelHwnd);
+	}
+
+} g_statusBar;
 
 bool g_isDragging;
 bool g_isTrackingLeaveClientArea;
@@ -288,12 +326,7 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 		ScrollTo(newCharacterIndex, ScrollToStyle::BOTTOM);
 	}
 
-	// Show label of row and column numbers, 1-indexed.
-	std::wstringstream label;
-	label << L"Row: " << (caretRow+1) << "        Col: " << (caretColumn+1);
-	label << L"        Mode: " << (g_mode == Mode::TextMode ? L"Text" : L"Diagram");
-	
-	Static_SetText(statusBarLabelHwnd, label.str().c_str());
+	g_statusBar.CaretPositionChanged(caretRow, caretColumn, statusBarLabelHwnd);
 }
 
 static void SetScrollPositions(WindowHandles windowHandles)
@@ -3059,6 +3092,7 @@ void OnDiagramMode(WindowHandles windowHandles)
 	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_CHECKED);
 	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_UNCHECKED);
 	g_mode = Mode::DiagramMode;
+	g_statusBar.ModeChanged(g_mode, windowHandles.StatusBarLabel);
 }
 
 void OnTextMode(WindowHandles windowHandles)
@@ -3067,6 +3101,7 @@ void OnTextMode(WindowHandles windowHandles)
 	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_UNCHECKED);
 	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_CHECKED);
 	g_mode = Mode::TextMode;
+	g_statusBar.ModeChanged(g_mode, windowHandles.StatusBarLabel);
 }
 
 void OnClose(WindowHandles windowHandles)
