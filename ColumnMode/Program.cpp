@@ -5,6 +5,7 @@
 #include "LayoutInfo.h"
 #include "PluginManager.h"
 #include "WindowManager.h"
+#include "Theme.h"
 
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
@@ -30,12 +31,10 @@ bool g_needsDeviceRecreation;
 ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Device> g_d2dDevice;
 ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
-ComPtr<ID2D1SolidColorBrush> g_redBrush;
-ComPtr<ID2D1SolidColorBrush> g_blackBrush;
-ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
-ComPtr<ID2D1SolidColorBrush> g_lightGrayBrush;
-ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
-ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
+
+ColumnMode::BrushCache g_brushCache;
+ColumnMode::Theme g_theme;
+
 UINT g_marchingAntsIndex;
 std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
@@ -613,12 +612,7 @@ void ReleaseDeviceDependentResources()
 	g_swapChain.Reset();
 	g_d2dDevice.Reset();
 	g_hwndRenderTarget.Reset();
-	g_redBrush.Reset();
-	g_blackBrush.Reset();
-	g_whiteBrush.Reset();
-	g_lightGrayBrush.Reset();
-	g_yellowBrush.Reset();
-	g_selectionBrush.Reset();
+	g_brushCache.Reset(nullptr);
 	g_marchingAnts.clear();
 }
 
@@ -667,12 +661,8 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 
 	SetTargetToBackBuffer();
 
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &g_redBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &g_blackBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(0.9f, 0.9f, 0.9f), &g_lightGrayBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &g_whiteBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange, 0.15f), &g_yellowBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy, 0.2f), &g_selectionBrush));
+	g_brushCache.Reset(g_hwndRenderTarget.Get());
+	ColumnMode::Theme::CreateDefaultTheme(g_theme);
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -788,16 +778,16 @@ void DrawDocument()
 		layoutRectangleInScreenSpace.right,
 		layoutRectangleInScreenSpace.bottom);
 
-	g_hwndRenderTarget->FillRectangle(paper, g_whiteBrush.Get());
+	g_hwndRenderTarget->FillRectangle(paper, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_PAPER)));
 
 	D2D1_RECT_F marginArea = D2D1::RectF(
 		layoutRectangleInScreenSpace.left - margin,
 		layoutRectangleInScreenSpace.top,
 		layoutRectangleInScreenSpace.left,
 		layoutRectangleInScreenSpace.bottom);
-	g_hwndRenderTarget->FillRectangle(marginArea, g_lightGrayBrush.Get());
+	g_hwndRenderTarget->FillRectangle(marginArea, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_MARGIN)));
 
-	g_hwndRenderTarget->DrawRectangle(paper, g_blackBrush.Get());
+	g_hwndRenderTarget->DrawRectangle(paper, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_PAPER_BORDER)));
 	
 	// Highlight current line
 	{
@@ -805,12 +795,13 @@ void DrawDocument()
 			layoutRectangleInScreenSpace.left,
 			layoutRectangleInScreenSpace.top + g_caretPosition.y,
 			layoutRectangleInScreenSpace.right,
-			layoutRectangleInScreenSpace.top + g_caretPosition.y + g_caretMetrics.height), g_yellowBrush.Get());
+			layoutRectangleInScreenSpace.top + g_caretPosition.y + g_caretMetrics.height),
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_CURRENT_LINE_HIGHLIGHT)));
 	}
 	
 	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 
-	g_hwndRenderTarget->DrawTextLayout(layoutPosition, g_textLayout.Get(), g_blackBrush.Get());
+	g_hwndRenderTarget->DrawTextLayout(layoutPosition, g_textLayout.Get(), g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::TEXT_DEFAULT)));
 
 	// Draw caret
 	if (g_caretBlinkState <= 25)
@@ -819,18 +810,22 @@ void DrawDocument()
 			layoutPosition.x + g_caretPosition.x,
 			layoutPosition.y + g_caretPosition.y,
 			layoutPosition.x + g_caretPosition.x + (g_status.GetMode() == Mode::DiagramMode ? g_caretMetrics.width : 2),
-			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
+			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height),
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_CARET)));
 	}
 
 	if (g_isDragging)
 	{
-		g_hwndRenderTarget->DrawRectangle(D2D1::RectF(g_start.Location.x, g_start.Location.y, g_current.Location.x, g_current.Location.y), g_redBrush.Get());
+		g_hwndRenderTarget->DrawRectangle(D2D1::RectF(g_start.Location.x, g_start.Location.y, g_current.Location.x, g_current.Location.y), 
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_DRAG_RECT)));
 	}
 
 	if (g_hasTextSelectionRectangle)
 	{
-		g_hwndRenderTarget->FillRectangle(g_textSelectionRectangle, g_selectionBrush.Get());
-		g_hwndRenderTarget->DrawRectangle(g_textSelectionRectangle, g_blackBrush.Get(), 1.0f, g_marchingAnts[g_marchingAntsIndex / 5].Get());
+		g_hwndRenderTarget->FillRectangle(g_textSelectionRectangle, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_SELECTION)));
+		g_hwndRenderTarget->DrawRectangle(g_textSelectionRectangle, 
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_SELECTION_BORDER)),
+			1.0f, g_marchingAnts[g_marchingAntsIndex / 5].Get());
 	}
 }
 
@@ -843,7 +838,7 @@ void Draw(WindowHandles windowHandles)
 	}
 
 	g_hwndRenderTarget->BeginDraw();
-	g_hwndRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::LightGray));
+	g_hwndRenderTarget->Clear(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_BACKGROUND));
 
 	if (g_isFileLoaded)
 	{
@@ -2762,7 +2757,7 @@ void OnPrint(WindowHandles windowHandles)
 	m_d2dContextForPrint->SetTarget(printedWork.Get());
 	m_d2dContextForPrint->BeginDraw();
 	m_d2dContextForPrint->Clear();
-	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_blackBrush.Get());
+	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::TEXT_DEFAULT)));
 	VerifyHR(m_d2dContextForPrint->EndDraw());
 	VerifyHR(printedWork->Close());
 
