@@ -57,6 +57,9 @@
     <ClInclude Include="..\External\json.hpp">
       <Filter>Header Files\External</Filter>
     </ClInclude>
+    <ClInclude Include="Theme.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -75,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="FindTool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Theme.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
