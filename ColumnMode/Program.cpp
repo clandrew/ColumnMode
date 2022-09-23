@@ -104,9 +104,9 @@ enum class Mode
 {
 	DiagramMode,
 	TextMode
-} g_mode;
+};
 
-class StatusBar
+class Status
 {
 	int m_caretRow;
 	int m_caretColumn;
@@ -117,13 +117,13 @@ class StatusBar
 		// Show label of row and column numbers, 1-indexed.
 		std::wstringstream label;
 		label << L"Row: " << (m_caretRow + 1) << "        Col: " << (m_caretColumn + 1);
-		label << L"        Mode: " << (g_mode == Mode::TextMode ? L"Text" : L"Diagram");
+		label << L"        Mode: " << (m_mode == Mode::TextMode ? L"Text" : L"Diagram");
 
 		Static_SetText(statusBarLabelHwnd, label.str().c_str());
 	}
 
 public:
-	StatusBar()
+	Status()
 		: m_caretRow(0)
 		, m_caretColumn(0)
 		, m_mode(Mode::DiagramMode)
@@ -137,13 +137,18 @@ public:
 		RefreshStatusBar(statusBarLabelHwnd);
 	}
 
-	void ModeChanged(Mode newMode, HWND statusBarLabelHwnd)
+	void SetMode(Mode newMode, HWND statusBarLabelHwnd)
 	{
 		m_mode = newMode;
 		RefreshStatusBar(statusBarLabelHwnd);
 	}
 
-} g_statusBar;
+	Mode GetMode() const
+	{
+		return m_mode;
+	}
+
+} g_status;
 
 bool g_isDragging;
 bool g_isTrackingLeaveClientArea;
@@ -326,7 +331,7 @@ static void SetCaretCharacterIndex(UINT32 newCharacterIndex, HWND statusBarLabel
 		ScrollTo(newCharacterIndex, ScrollToStyle::BOTTOM);
 	}
 
-	g_statusBar.CaretPositionChanged(caretRow, caretColumn, statusBarLabelHwnd);
+	g_status.CaretPositionChanged(caretRow, caretColumn, statusBarLabelHwnd);
 }
 
 static void SetScrollPositions(WindowHandles windowHandles)
@@ -691,7 +696,7 @@ void InitManagers(HINSTANCE hInstance, WindowHandles windowHandles)
 	callbacks.pfnOpenWindow = [](CreateWindowArgs args, HWND* hwnd) { return g_windowManager.CreateNewWindow(args, hwnd); };
 	callbacks.pfnRecommendEditMode = [](HANDLE hPlugin, ColumnMode::EDIT_MODE editMode) {
 		Mode mode = static_cast<Mode>(editMode);
-		if (mode == g_mode)
+		if (mode == g_status.GetMode())
 		{
 			return S_OK;
 		}
@@ -724,7 +729,6 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
-	g_mode = Mode::DiagramMode;
 
 	InitializeKeyOutput();
 
@@ -814,7 +818,7 @@ void DrawDocument()
 		g_hwndRenderTarget->FillRectangle(D2D1::RectF(
 			layoutPosition.x + g_caretPosition.x,
 			layoutPosition.y + g_caretPosition.y,
-			layoutPosition.x + g_caretPosition.x + (g_mode == Mode::DiagramMode ? g_caretMetrics.width : 2),
+			layoutPosition.x + g_caretPosition.x + (g_status.GetMode() == Mode::DiagramMode ? g_caretMetrics.width : 2),
 			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
 	}
 
@@ -953,7 +957,7 @@ static void UpdateTextSelectionRectangle()
 
 void OnMouseLeftButtonDblClick(WindowHandles windowHandles, LPARAM lParam)
 {
-	if (g_mode == Mode::TextMode)
+	if (g_status.GetMode() == Mode::TextMode)
 	{
 		Drag mouseInfo;
 		GetMouseInfo(lParam, mouseInfo);
@@ -1219,11 +1223,11 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		}
 
 		int xBoundary;
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			xBoundary = selection.Right;
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			xBoundary = selection.Right-1;
 		}
@@ -1260,11 +1264,11 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		}
 
 		int yBoundary;
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			yBoundary = selection.Bottom;
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			yBoundary = selection.Bottom-1;
 		}
@@ -1304,11 +1308,11 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		}
 
 		int xBoundary;
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			xBoundary = selection.Left - 1;
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			xBoundary = selection.Left;
 		}
@@ -1345,11 +1349,11 @@ static bool TryMoveSelectedBlock(WindowHandles windowHandles, WPARAM wParam)
 		}
 
 		int yBoundary;
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			yBoundary = selection.Top - 1;
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			yBoundary = selection.Top;
 		}
@@ -1488,7 +1492,7 @@ void OnEnterPressed(WindowHandles windowHandles)
 	int caretRow, caretColumn;
 	GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
 
-	if (g_mode == Mode::DiagramMode)
+	if (g_status.GetMode() == Mode::DiagramMode)
 	{
 		if (caretRow < static_cast<int>(g_textLineStarts.size()) - 1)
 		{
@@ -1497,7 +1501,7 @@ void OnEnterPressed(WindowHandles windowHandles)
 			SetCaretCharacterIndex(g_textLineStarts[caretRow] + caretColumn, windowHandles.StatusBarLabel);
 		}
 	}
-	else if (g_mode == Mode::TextMode)
+	else if (g_status.GetMode() == Mode::TextMode)
 	{
 		// Insert a line
 		std::wstring copiedLine;
@@ -1580,7 +1584,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
 
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			Action a;
 			a.Type = Action::WriteCharacter_DiagramMode;
@@ -1593,7 +1597,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 
 			WriteCharacterAtCaret(chr, windowHandles);
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			int caretRow, caretColumn;
 			GetRowAndColumnFromCharacterPosition(g_caretCharacterIndex, &caretRow, &caretColumn);
@@ -1657,7 +1661,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 8) // Backspace
 	{
-		if (g_mode == Mode::DiagramMode)
+		if (g_status.GetMode() == Mode::DiagramMode)
 		{
 			DisableTextSelectionRectangle(windowHandles);
 			if (g_caretCharacterIndex > 0)
@@ -1675,7 +1679,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 
 			g_allText[g_caretCharacterIndex] = L' ';
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			int startIndex, endIndex;
 			if (g_hasTextSelectionRectangle)
@@ -1801,7 +1805,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 	}
 	else if (wParam == 45) // Insert Key
 	{
-		if (g_mode == Mode::TextMode)
+		if (g_status.GetMode() == Mode::TextMode)
 		{
 			OnDiagramMode(windowHandles);
 		}
@@ -1819,7 +1823,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 			DisableTextSelectionRectangle(windowHandles);
 			DeleteBlock(windowHandles);
 		}
-		else if (g_mode == Mode::TextMode)
+		else if (g_status.GetMode() == Mode::TextMode)
 		{
 			if (g_caretCharacterIndex > 0)
 			{
@@ -2530,7 +2534,7 @@ void OnPaste(WindowHandles windowHandles)
 
 	RecreateTextLayout();
 
-	if (g_mode == Mode::TextMode)
+	if (g_status.GetMode() == Mode::TextMode)
 	{
 		//move cursor to end of psate
 		SetCaretCharacterIndex(a.TextPosition + static_cast<UINT32>(a.OverwrittenChars[0].size()), windowHandles.StatusBarLabel);
@@ -3091,8 +3095,7 @@ void OnDiagramMode(WindowHandles windowHandles)
 	HMENU menu = GetMenu(windowHandles.TopLevel);
 	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_CHECKED);
 	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_UNCHECKED);
-	g_mode = Mode::DiagramMode;
-	g_statusBar.ModeChanged(g_mode, windowHandles.StatusBarLabel);
+	g_status.SetMode(Mode::DiagramMode, windowHandles.StatusBarLabel);
 }
 
 void OnTextMode(WindowHandles windowHandles)
@@ -3100,8 +3103,7 @@ void OnTextMode(WindowHandles windowHandles)
 	HMENU menu = GetMenu(windowHandles.TopLevel);
 	CheckMenuItem(menu, ID_OPTIONS_DIAGRAMMODE, MF_BYCOMMAND | MF_UNCHECKED);
 	CheckMenuItem(menu, ID_OPTIONS_TEXTMODE, MF_BYCOMMAND | MF_CHECKED);
-	g_mode = Mode::TextMode;
-	g_statusBar.ModeChanged(g_mode, windowHandles.StatusBarLabel);
+	g_status.SetMode(Mode::TextMode, windowHandles.StatusBarLabel);
 }
 
 void OnClose(WindowHandles windowHandles)
