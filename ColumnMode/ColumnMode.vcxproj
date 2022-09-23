@@ -153,6 +153,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\External\json.hpp" />
     <ClInclude Include="ColumnModePluginApi.h" />
     <ClInclude Include="FindTool.h" />
     <ClInclude Include="LayoutInfo.h" />
