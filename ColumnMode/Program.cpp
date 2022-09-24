@@ -21,6 +21,7 @@ bool g_hasUnsavedChanges;
 
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
+ColumnMode::ThemeManager g_themeManager;
 ColumnMode::FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
@@ -663,6 +664,7 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 
 	g_brushCache.Reset(g_hwndRenderTarget.Get());
 	ColumnMode::Theme::CreateDefaultTheme(g_theme);
+	//g_themeManager.LoadTheme(L"ColumnMode Classic", g_theme);
 
 	for (int i = 0; i < 4; ++i)
 	{
