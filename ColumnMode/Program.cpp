@@ -7,7 +7,6 @@
 #include "WindowManager.h"
 #include "Theme.h"
 
-
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
 
 const float g_fontSize = 12.0f;
@@ -663,8 +662,8 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 	SetTargetToBackBuffer();
 
 	g_brushCache.Reset(g_hwndRenderTarget.Get());
-	ColumnMode::Theme::CreateDefaultTheme(g_theme);
-	//g_themeManager.LoadTheme(L"ColumnMode Classic", g_theme);
+	g_themeManager.LoadTheme(L"ColumnMode Classic", g_theme);
+	OnThemesRescan(windowHandles, /*skip rescan*/ true);
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -2831,6 +2830,55 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
 	 }	 
 }
 
+void OnThemesRescan(WindowHandles windowHandles, bool skipRescan)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU themesMenu;
+	int themesRescanMenuPos;
+	FindMenuPos(toplevelMenu, ID_THEMES_RESCAN, themesMenu, themesRescanMenuPos);
+
+	int separatorIndex = themesRescanMenuPos + 1;
+
+	int numItems = GetMenuItemCount(themesMenu);
+	for (int i = numItems - 1; i > separatorIndex; i--)
+	{
+		HMENU m = (HMENU)(UINT_PTR)GetMenuItemID(themesMenu, i);
+		DestroyMenu(m);
+		RemoveMenu(themesMenu, i, MF_BYPOSITION);
+	}
+
+	if (!skipRescan)
+	{
+		g_themeManager.ScanForThemes();
+	}
+	UINT id = ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX;
+	for (auto& str : g_themeManager.GetAvailableThemes())
+	{
+		AppendMenu(themesMenu, MF_STRING, id, str.c_str());
+		//If already active:
+		if (g_theme.GetName().compare(str.c_str()) == 0)
+		{
+			CheckMenuItem(themesMenu, id, MF_BYCOMMAND | MF_CHECKED);
+		}
+		id++;
+	}
+}
+
+bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id)
+{
+	static_assert(ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX);
+
+	if (id >= ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX)
+	{
+		OnMaybeThemeSelected(windowHandles, id);
+	}
+	else if (id >= ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX)
+	{
+		return OnMaybePluginSelected(windowHandles, id);
+	}
+	return false;
+}
+
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 {
 	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
@@ -2861,6 +2909,27 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 			}
 		}
 		//TODO: Should probably be able to disbale plugins :P
+	}
+	return true;
+}
+
+bool OnMaybeThemeSelected(WindowHandles windowHandles, int id)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU themesMenu;
+	int themesRescanMenuPos;
+	FindMenuPos(toplevelMenu, ID_THEMES_RESCAN, themesMenu, themesRescanMenuPos);
+	int numItems = GetMenuItemCount(themesMenu);
+	if (id - ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > numItems)
+	{
+		return false;
+	}
+	WCHAR buff[64];
+	int size = GetMenuString(themesMenu, id, buff, 64, MF_BYCOMMAND);
+	if (size > 0 && g_theme.GetName().compare(buff) != 0)
+	{
+		g_themeManager.LoadTheme(buff, g_theme);
+		OnThemesRescan(windowHandles, true); // Handle the check marking-ing in probably the worst way
 	}
 	return true;
 }

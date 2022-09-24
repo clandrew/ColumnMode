@@ -41,7 +41,8 @@ void OnPaste(WindowHandles windowHandles);
 void OnRefresh(WindowHandles windowHandles);
 void OnPrint(WindowHandles windowHandles);
 void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
-bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
+void OnThemesRescan(WindowHandles windowHandles, bool skipRescan = false);
+bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);
 void OnFind(HINSTANCE hInst, HWND hWnd);
@@ -51,6 +52,10 @@ void OnInitializeDocumentProperties(HWND hDlg);
 void OnConfirmDocumentProperties(WindowHandles windowHandles, HWND hDlg, WPARAM wParam);
 
 void OnClipboardContentsChanged(WindowHandles windowHandles);
+
+// Dynamic Menu Item selection
+bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
+bool OnMaybeThemeSelected(WindowHandles windowHandles, int id);
 
 struct Drag
 {

@@ -60,6 +60,9 @@
     <ClInclude Include="Theme.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MenuHelper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="utf8Conversion.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -84,6 +87,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Theme.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MenuHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -310,6 +310,11 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 		case ID_OPTIONS_TEXTMODE:
 			OnTextMode(g_windowHandles);
 			break;
+		case ID_THEMES_RESCAN:
+			OnThemesRescan(g_windowHandles);
+			break;
+		case ID_THEMES_CREATENEWTHEME:
+			break;
 		case ID_FILE_REFRESH:
 			OnRefresh(g_windowHandles);
 			break;
@@ -329,7 +334,7 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			DestroyWindow(hWnd);
 			break;
 		default:
-			if (!OnMaybePluginSelected(g_windowHandles, LOWORD(wParam)))
+			if (!OnMaybeDynamicMenuItemSelected(g_windowHandles, LOWORD(wParam)))
 			{
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}

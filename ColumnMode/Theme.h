@@ -66,6 +66,7 @@ namespace ColumnMode
 		bool LoadTheme(std::wstring themeName, Theme& out);
 		bool SaveTheme(Theme& theme);
 		void ScanForThemes();
+		const std::vector<std::wstring> GetAvailableThemes() { return m_availableThemes; }
 
 	private:
 		void EnsureThemePathExists();
@@ -73,6 +74,9 @@ namespace ColumnMode
 	private:
 		std::filesystem::path m_themesRootPath;
 		std::vector<std::wstring> m_availableThemes;
+
+	public:
+		static const int THEME_MENU_ITEM_START_INDEX = 5000;//chosen arbitrarily. hopefully the resource generator doesn't conflict
 	};
 
 	struct D2D1_ColorF_Hash
@@ -106,6 +110,6 @@ namespace ColumnMode
 		ID2D1SolidColorBrush* GetBrush(D2D1::ColorF color);
 	private:
 		std::unordered_map <D2D1::ColorF, ComPtr<ID2D1SolidColorBrush>, D2D1_ColorF_Hash, D2D1_ColorF_EqualTo> m_brushCache;
-		ID2D1DeviceContext* h_pDeviceContext;
+		ID2D1DeviceContext* h_pDeviceContext = nullptr;
 	};
 }

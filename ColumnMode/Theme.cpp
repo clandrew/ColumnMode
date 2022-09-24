@@ -156,11 +156,17 @@ bool ColumnMode::ThemeManager::LoadTheme(std::wstring themeName, Theme& out)
 	path.append(themeName)	//Plugins should be in a folder of the plugin name
 		.replace_extension(L".cmt"); // Column Mode Theme
 
-	std::ifstream file(path);
-	json data = json::parse(file);
-
-	out = data;
-
+	if (std::filesystem::exists(path))
+	{
+		std::ifstream file(path);
+		json data = json::parse(file);
+		out = data;
+	}
+	else
+	{
+		Theme::CreateDefaultTheme(out);
+		SaveTheme(out);
+	}
 	return false;
 }
 
@@ -174,6 +180,7 @@ bool ColumnMode::ThemeManager::SaveTheme(Theme& theme)
 	std::ofstream file(path);
 	file << data.dump(2);
 	file.close();
+
 	return true;
 }
 
@@ -181,11 +188,12 @@ void ColumnMode::ThemeManager::ScanForThemes()
 {
 	m_availableThemes.clear();
 	std::filesystem::directory_iterator dirIter(m_themesRootPath, std::filesystem::directory_options::none);
-	for (auto& dir : dirIter)
+	for (auto& file : dirIter)
 	{
-		if (dir.is_directory())
+		if (!file.is_directory())
 		{
-			std::wstring dirStr = dir.path().filename().wstring();
+			// Themes are single files, currently not supporting folders of themes
+			std::wstring dirStr = file.path().filename().replace_extension(L"").wstring();
 			m_availableThemes.push_back(std::move(dirStr));
 		}
 	}
