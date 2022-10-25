@@ -1952,6 +1952,7 @@ void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam)
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName)
 {
+	PromptToSaveUnsavedChanges();
 	SetCurrentFileNameAndUpdateWindowTitle(windowHandles, fileName);
 
 	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(fileName);
@@ -2864,6 +2865,43 @@ void OnThemesRescan(WindowHandles windowHandles, bool skipRescan)
 	}
 }
 
+LRESULT CALLBACK ThemeNameQueryCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK)
+		{
+			HWND editBox = GetDlgItem(hDlg, IDC_THEMENAME_EDITBOX);
+			assert(editBox != NULL);
+			wchar_t textBuffer[64]{};
+			int numChars = Static_GetText(editBox, textBuffer, _countof(textBuffer));
+			ColumnMode::Theme theme;
+			ColumnMode::Theme::CreateDefaultTheme(theme);
+			theme.SetName(textBuffer);
+			if (g_themeManager.SaveTheme(theme))
+			{
+				
+				OpenImpl(g_windowManager.GetWindowHandles(), g_themeManager.GetThemeFilepath(theme).c_str());
+			}
+			EndDialog(hDlg, LOWORD(wParam));
+			return TRUE;
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
+}
+
+void OnCreateTheme(HWND hwnd, HINSTANCE hInst)
+{
+	DialogBox(hInst, MAKEINTRESOURCE(IDD_THEMENAMEQUERY), hwnd, ThemeNameQueryCallback);
+}
+
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id)
 {
 	static_assert(ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX);
@@ -2932,6 +2970,49 @@ bool OnMaybeThemeSelected(WindowHandles windowHandles, int id)
 		OnThemesRescan(windowHandles, true); // Handle the check marking-ing in probably the worst way
 	}
 	return true;
+}
+
+void PromptToSaveUnsavedChanges()
+{
+	if (g_hasUnsavedChanges)
+	{
+		std::wstring dialogText;
+		if (g_fileName.length() > 0)
+		{
+			dialogText.append(L"Save changes to ");
+			dialogText.append(g_fileName);
+		}
+		else
+		{
+			dialogText.append(L"Save this document");
+		}
+		dialogText.append(L"?");
+
+		int dialogResult = MessageBox(
+			nullptr,
+			dialogText.c_str(),
+			L"ColumnMode",
+			MB_YESNOCANCEL);
+
+		if (dialogResult == IDCANCEL)
+			return;
+
+		if (dialogResult == IDYES)
+		{
+			if (g_fileName.length() > 0)
+			{
+				OnSave(g_windowManager.GetWindowHandles());
+			}
+			else
+			{
+				OnSaveAs(g_windowManager.GetWindowHandles());
+			}
+		}
+		else
+		{
+			assert(dialogResult == IDNO);
+		}
+	}
 }
 
 void OnInitializeDocumentProperties(HWND hDlg)
@@ -3174,45 +3255,7 @@ void OnTextMode(WindowHandles windowHandles)
 
 void OnClose(WindowHandles windowHandles)
 {
-	if (g_hasUnsavedChanges)
-	{
-		std::wstring dialogText;
-		if (g_fileName.length() > 0)
-		{
-			dialogText.append(L"Save changes to ");
-			dialogText.append(g_fileName);
-		}
-		else
-		{
-			dialogText.append(L"Save this document");
-		}
-		dialogText.append(L"?");
-
-		int dialogResult = MessageBox(
-			nullptr,
-			dialogText.c_str(),
-			L"ColumnMode",
-			MB_YESNOCANCEL);
-
-		if (dialogResult == IDCANCEL)
-			return;
-
-		if (dialogResult == IDYES)
-		{
-			if (g_fileName.length() > 0)
-			{
-				OnSave(windowHandles);
-			}
-			else
-			{
-				OnSaveAs(windowHandles);
-			}
-		}
-		else
-		{
-			assert(dialogResult == IDNO);
-		}
-	}
+	PromptToSaveUnsavedChanges();
 
 	DestroyWindow(windowHandles.TopLevel);
 }

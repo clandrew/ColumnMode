@@ -314,6 +314,7 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			OnThemesRescan(g_windowHandles);
 			break;
 		case ID_THEMES_CREATENEWTHEME:
+			OnCreateTheme(hWnd, hInst);
 			break;
 		case ID_FILE_REFRESH:
 			OnRefresh(g_windowHandles);

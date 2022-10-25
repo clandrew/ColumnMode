@@ -193,6 +193,7 @@
     <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="idd_them.bin" />
     <None Include="PluginFunctions.inl" />
     <None Include="PluginManagerFunctions.inl" />
   </ItemGroup>

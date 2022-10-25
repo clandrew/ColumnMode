@@ -50,6 +50,7 @@ namespace ColumnMode
 		friend void to_json(nlohmann::json& j, const Theme& t);
 		friend void from_json(const nlohmann::json& j, Theme& t);
 		std::wstring GetName() { return m_name; }
+		void SetName(std::wstring name) { m_name = name; }
 		
 	private:
 		// Used for 1:1 mappings of THEME_COLOR to colors
@@ -65,6 +66,7 @@ namespace ColumnMode
 		ThemeManager();
 		bool LoadTheme(std::wstring themeName, Theme& out);
 		bool SaveTheme(Theme& theme);
+		std::wstring GetThemeFilepath(Theme& theme);
 		void ScanForThemes();
 		const std::vector<std::wstring> GetAvailableThemes() { return m_availableThemes; }
 

@@ -113,5 +113,8 @@
     <None Include="PluginFunctions.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="idd_them.bin">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

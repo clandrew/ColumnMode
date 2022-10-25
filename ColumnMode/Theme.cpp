@@ -184,6 +184,14 @@ bool ColumnMode::ThemeManager::SaveTheme(Theme& theme)
 	return true;
 }
 
+std::wstring ColumnMode::ThemeManager::GetThemeFilepath(Theme& theme)
+{
+	std::filesystem::path path(m_themesRootPath);
+	path.append(theme.GetName())	//Plugins should be in a folder of the plugin name
+		.replace_extension(L".cmt"); // Column Mode Theme
+	return path.native();
+}
+
 void ColumnMode::ThemeManager::ScanForThemes()
 {
 	m_availableThemes.clear();
