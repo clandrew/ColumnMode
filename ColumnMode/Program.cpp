@@ -1049,14 +1049,14 @@ void ScrollTo(UINT index, ScrollToStyle scrollStyle)
 	if (scrollAmount < 0)
 		scrollAmount = 0;
 
-	if (scrollAmount > g_verticalScrollLimit)
-		scrollAmount = g_verticalScrollLimit;
+	if (scrollAmount > (float)g_verticalScrollLimit)
+		scrollAmount = (float)g_verticalScrollLimit;
 
 	g_layoutInfo.SetPositionY(-scrollAmount);
 
 	UpdateTextSelectionRectangle();
 
-	scrollInfo.nPos = scrollAmount;
+	scrollInfo.nPos = (int)scrollAmount;
 	SetScrollInfo(documentHwnd, SB_VERT, &scrollInfo, TRUE);
 	InvalidateRect(documentHwnd, nullptr, FALSE);
 }
