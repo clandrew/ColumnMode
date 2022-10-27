@@ -168,6 +168,9 @@ D2D1_POINT_2F g_caretPosition;
 DWRITE_HIT_TEST_METRICS g_caretMetrics;
 int g_caretBlinkState;
 
+int g_updatesSinceLastEdit;
+const int g_numUpdatesWithoutEditBeforeConfirmingEdits = 50;
+
 std::wstring g_allText;
 std::vector<int> g_textLineStarts;
 int g_maxLineLength = 0;
@@ -730,6 +733,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isTrackingLeaveClientArea = false;
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
+	g_updatesSinceLastEdit = 0;
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
@@ -1586,6 +1590,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		return;
 
 	g_caretBlinkState = 0;
+	g_updatesSinceLastEdit = 0;
 	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
@@ -1881,8 +1886,17 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 	}
 }
 
+void ConfirmEdits()
+{
+}
+
 void Update()
 {
+	g_updatesSinceLastEdit++;
+	if (!g_allText.empty() && g_updatesSinceLastEdit == g_numUpdatesWithoutEditBeforeConfirmingEdits)
+	{
+		ConfirmEdits();
+	}
 	if (g_marchingAnts.size() == 0)
 		return;
 
