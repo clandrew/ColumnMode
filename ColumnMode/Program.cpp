@@ -2920,6 +2920,7 @@ LRESULT CALLBACK ThemeNameQueryCallback(HWND hDlg, UINT message, WPARAM wParam, 
 			{
 				
 				OpenImpl(g_windowManager.GetWindowHandles(), g_themeManager.GetThemeFilepath(theme).c_str());
+				g_theme = theme;
 			}
 			EndDialog(hDlg, LOWORD(wParam));
 			return TRUE;
