@@ -64,10 +64,12 @@ namespace ColumnMode
 	{
 	public:
 		ThemeManager();
-		bool LoadTheme(std::wstring themeName, Theme& out);
+		bool LoadTheme(std::wstring themeName, Theme& out, bool createDefaultIfNoTheme = true);
+		bool LoadThemeFromText(std::wstring json, Theme& out);
 		bool SaveTheme(Theme& theme);
 		std::wstring GetThemeFilepath(Theme& theme);
 		void ScanForThemes();
+		bool IsEditingTheme(Theme& currentTheme, std::wstring activeFilePath);
 		const std::vector<std::wstring> GetAvailableThemes() { return m_availableThemes; }
 
 	private:

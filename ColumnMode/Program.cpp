@@ -1888,6 +1888,10 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 
 void ConfirmEdits()
 {
+	if (g_themeManager.IsEditingTheme(g_theme, g_fileFullPath))
+	{
+		g_themeManager.LoadThemeFromText(g_allText, g_theme);
+	}
 }
 
 void Update()
@@ -2027,6 +2031,12 @@ void OnOpen(WindowHandles windowHandles)
 	if (!!GetOpenFileName(&ofn))
 	{
 		OpenImpl(windowHandles, ofn.lpstrFile);
+		std::filesystem::path path = ofn.lpstrFile;
+		if (path.extension() == L".cmt") {
+			if (!g_themeManager.LoadTheme(path.filename(), g_theme, false)) {
+				MessageBox(NULL, L"There was an error loading the theme.", ofn.lpstrFile, MB_OK);
+			}
+		}
 	}
 }
 

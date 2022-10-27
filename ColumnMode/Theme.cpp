@@ -150,7 +150,7 @@ ThemeManager::ThemeManager()
 	ScanForThemes();
 }
 
-bool ColumnMode::ThemeManager::LoadTheme(std::wstring themeName, Theme& out)
+bool ColumnMode::ThemeManager::LoadTheme(std::wstring themeName, Theme& out, bool createDefaultIfNoTheme)
 {
 	std::filesystem::path path(m_themesRootPath);
 	path.append(themeName)	//Plugins should be in a folder of the plugin name
@@ -161,11 +161,29 @@ bool ColumnMode::ThemeManager::LoadTheme(std::wstring themeName, Theme& out)
 		std::ifstream file(path);
 		json data = json::parse(file);
 		out = data;
+		out.SetName(themeName);
+		return true;
 	}
-	else
+	else if(createDefaultIfNoTheme)
 	{
 		Theme::CreateDefaultTheme(out);
 		SaveTheme(out);
+		return true;
+	}
+	return false;
+}
+
+bool ColumnMode::ThemeManager::LoadThemeFromText(std::wstring jsonString, Theme& out)
+{
+	try
+	{
+		json data = json::parse(jsonString);
+		out = data;
+		return true;
+	}
+	catch (...)
+	{
+		return false;
 	}
 	return false;
 }
@@ -206,6 +224,14 @@ void ColumnMode::ThemeManager::ScanForThemes()
 		}
 	}
 	std::sort(m_availableThemes.begin(), m_availableThemes.end());
+}
+
+bool ColumnMode::ThemeManager::IsEditingTheme(Theme& theme, std::wstring activeFilePath)
+{
+	std::filesystem::path temp;
+	temp = m_themesRootPath / theme.GetName();
+	temp.replace_extension(L".cmt");
+	return temp == activeFilePath;
 }
 
 void ThemeManager::EnsureThemePathExists()
