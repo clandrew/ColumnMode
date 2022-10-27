@@ -190,6 +190,19 @@ void InitializeKeyOutput()
 	{
 		g_keyOutput[i].Set(L'a' + (i - 65), 'A' + (i - 65));
 	}
+	for (int i = VK_NUMPAD0; i <= VK_DIVIDE; i++)
+	{
+		
+		if (i <= VK_NUMPAD9)
+		{
+			g_keyOutput[i].Set(L'0' + (i - VK_NUMPAD0), L'0' + (i - VK_NUMPAD0));
+		}
+		else
+		{
+			static wchar_t symbols[7] = L"*+ -./";
+			g_keyOutput[i].Set(symbols[i - VK_MULTIPLY], symbols[i - VK_MULTIPLY]);
+		}
+	}
 
 	g_keyOutput[186].Set(L';', L':');
 	g_keyOutput[187].Set(L'=', L'+');
