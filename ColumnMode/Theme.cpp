@@ -159,10 +159,16 @@ bool ColumnMode::ThemeManager::LoadTheme(std::wstring themeName, Theme& out, boo
 	if (std::filesystem::exists(path))
 	{
 		std::ifstream file(path);
-		json data = json::parse(file);
-		out = data;
-		out.SetName(themeName);
-		return true;
+		try {
+			json data = json::parse(file);
+			out = data;
+			out.SetName(themeName);
+			return true;
+		}
+		catch (...) {
+			// Exception encountered while parsing json data
+			return false;
+		}
 	}
 	else if(createDefaultIfNoTheme)
 	{
