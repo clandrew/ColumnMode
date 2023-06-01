@@ -62,14 +62,19 @@ HRESULT ColumnMode::PluginManager::ScanForPlugins()
 HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 {
 	std::filesystem::path path(m_modulesRootPath);
-	path.append(pluginName)	//Plugins should be in a folder of the plugin name
-		.append(pluginName)	//Plugin is a DLL file of the plugin name
+	path.append(pluginName)			//Plugins should be in a folder of the plugin name
+		.append(pluginName)			//Plugin is a DLL file of the plugin name
 		.replace_extension(L".dll");
 
-	HMODULE pluginModule = LoadLibrary(path.c_str());
+	DWORD flags =  LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR;
+	HMODULE pluginModule = LoadLibraryEx(path.c_str(), NULL, flags);
 	if (pluginModule == NULL)
 	{
-		MessageBox(NULL, path.c_str(), L"Plugin Not Found", MB_OK | MB_ICONERROR);
+		DWORD err = GetLastError();
+		WCHAR buff[1024];
+		std::swprintf(buff, 1024, _T("Plugin not found or DLL failed to load.\nError code: %d\nPath: %s"), err, path.c_str());
+		MessageBox(NULL, buff, L"Error loading plugin DLL", MB_OK | MB_ICONERROR);
+		
 		return E_INVALIDARG;
 	}
 
