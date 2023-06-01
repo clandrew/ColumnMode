@@ -77,7 +77,7 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 		reinterpret_cast<PFN_OPENCOLUMNMODEPLUGIN>(GetProcAddress(pluginModule, "OpenColumnModePlugin"));
 
 	PluginFunctions pluginFuncs = { 0 };
-	OpenPluginArgs args;
+	OpenPluginArgs args{};
 	args.apiVersion = c_ColumnModePluginApiVersion;
 	args.hPlugin = NULL;
 	args.pPluginFuncs = &pluginFuncs;

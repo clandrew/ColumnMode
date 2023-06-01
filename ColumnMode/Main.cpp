@@ -114,7 +114,7 @@ void MyRegisterClass(HINSTANCE hInstance)
 	}
 	{
 		// Document window
-		WNDCLASSEXW wcex;
+		WNDCLASSEXW wcex {};
 
 		wcex.cbSize = sizeof(WNDCLASSEX);
 
