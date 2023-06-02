@@ -5,7 +5,7 @@
 #include "LayoutInfo.h"
 #include "PluginManager.h"
 #include "WindowManager.h"
-
+#include "Theme.h"
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName);
 
@@ -20,6 +20,7 @@ bool g_hasUnsavedChanges;
 
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
+ColumnMode::ThemeManager g_themeManager;
 ColumnMode::FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
@@ -30,12 +31,10 @@ bool g_needsDeviceRecreation;
 ComPtr<IDXGISwapChain> g_swapChain;
 ComPtr<ID2D1Device> g_d2dDevice;
 ComPtr<ID2D1DeviceContext> g_hwndRenderTarget;
-ComPtr<ID2D1SolidColorBrush> g_redBrush;
-ComPtr<ID2D1SolidColorBrush> g_blackBrush;
-ComPtr<ID2D1SolidColorBrush> g_whiteBrush;
-ComPtr<ID2D1SolidColorBrush> g_lightGrayBrush;
-ComPtr<ID2D1SolidColorBrush> g_yellowBrush;
-ComPtr<ID2D1SolidColorBrush> g_selectionBrush;
+
+ColumnMode::BrushCache g_brushCache;
+ColumnMode::Theme g_theme;
+
 UINT g_marchingAntsIndex;
 std::vector<ComPtr<ID2D1StrokeStyle>> g_marchingAnts;
 
@@ -169,6 +168,9 @@ D2D1_POINT_2F g_caretPosition;
 DWRITE_HIT_TEST_METRICS g_caretMetrics;
 int g_caretBlinkState;
 
+int g_updatesSinceLastEdit;
+const int g_numUpdatesWithoutEditBeforeConfirmingEdits = 50;
+
 std::wstring g_allText;
 std::vector<int> g_textLineStarts;
 int g_maxLineLength = 0;
@@ -190,6 +192,19 @@ void InitializeKeyOutput()
 	for (int i = 65; i <= 90; ++i)
 	{
 		g_keyOutput[i].Set(L'a' + (i - 65), 'A' + (i - 65));
+	}
+	for (int i = VK_NUMPAD0; i <= VK_DIVIDE; i++)
+	{
+		
+		if (i <= VK_NUMPAD9)
+		{
+			g_keyOutput[i].Set(L'0' + (i - VK_NUMPAD0), L'0' + (i - VK_NUMPAD0));
+		}
+		else
+		{
+			static wchar_t symbols[7] = L"*+ -./";
+			g_keyOutput[i].Set(symbols[i - VK_MULTIPLY], symbols[i - VK_MULTIPLY]);
+		}
 	}
 
 	g_keyOutput[186].Set(L';', L':');
@@ -613,12 +628,7 @@ void ReleaseDeviceDependentResources()
 	g_swapChain.Reset();
 	g_d2dDevice.Reset();
 	g_hwndRenderTarget.Reset();
-	g_redBrush.Reset();
-	g_blackBrush.Reset();
-	g_whiteBrush.Reset();
-	g_lightGrayBrush.Reset();
-	g_yellowBrush.Reset();
-	g_selectionBrush.Reset();
+	g_brushCache.Reset(nullptr);
 	g_marchingAnts.clear();
 }
 
@@ -667,12 +677,9 @@ void CreateDeviceDependentResources(WindowHandles windowHandles)
 
 	SetTargetToBackBuffer();
 
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Red), &g_redBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &g_blackBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(0.9f, 0.9f, 0.9f), &g_lightGrayBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::White), &g_whiteBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Orange, 0.15f), &g_yellowBrush));
-	VerifyHR(g_hwndRenderTarget->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Navy, 0.2f), &g_selectionBrush));
+	g_brushCache.Reset(g_hwndRenderTarget.Get());
+	g_themeManager.LoadTheme(L"ColumnMode Classic", g_theme);
+	OnThemesRescan(windowHandles, /*skip rescan*/ true);
 
 	for (int i = 0; i < 4; ++i)
 	{
@@ -726,6 +733,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isTrackingLeaveClientArea = false;
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
+	g_updatesSinceLastEdit = 0;
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
@@ -788,16 +796,16 @@ void DrawDocument()
 		layoutRectangleInScreenSpace.right,
 		layoutRectangleInScreenSpace.bottom);
 
-	g_hwndRenderTarget->FillRectangle(paper, g_whiteBrush.Get());
+	g_hwndRenderTarget->FillRectangle(paper, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_PAPER)));
 
 	D2D1_RECT_F marginArea = D2D1::RectF(
 		layoutRectangleInScreenSpace.left - margin,
 		layoutRectangleInScreenSpace.top,
 		layoutRectangleInScreenSpace.left,
 		layoutRectangleInScreenSpace.bottom);
-	g_hwndRenderTarget->FillRectangle(marginArea, g_lightGrayBrush.Get());
+	g_hwndRenderTarget->FillRectangle(marginArea, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_MARGIN)));
 
-	g_hwndRenderTarget->DrawRectangle(paper, g_blackBrush.Get());
+	g_hwndRenderTarget->DrawRectangle(paper, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_PAPER_BORDER)));
 	
 	// Highlight current line
 	{
@@ -805,12 +813,13 @@ void DrawDocument()
 			layoutRectangleInScreenSpace.left,
 			layoutRectangleInScreenSpace.top + g_caretPosition.y,
 			layoutRectangleInScreenSpace.right,
-			layoutRectangleInScreenSpace.top + g_caretPosition.y + g_caretMetrics.height), g_yellowBrush.Get());
+			layoutRectangleInScreenSpace.top + g_caretPosition.y + g_caretMetrics.height),
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_CURRENT_LINE_HIGHLIGHT)));
 	}
 	
 	D2D1_POINT_2F layoutPosition = g_layoutInfo.GetPosition();
 
-	g_hwndRenderTarget->DrawTextLayout(layoutPosition, g_textLayout.Get(), g_blackBrush.Get());
+	g_hwndRenderTarget->DrawTextLayout(layoutPosition, g_textLayout.Get(), g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::TEXT_DEFAULT)));
 
 	// Draw caret
 	if (g_caretBlinkState <= 25)
@@ -819,18 +828,22 @@ void DrawDocument()
 			layoutPosition.x + g_caretPosition.x,
 			layoutPosition.y + g_caretPosition.y,
 			layoutPosition.x + g_caretPosition.x + (g_status.GetMode() == Mode::DiagramMode ? g_caretMetrics.width : 2),
-			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height), g_blackBrush.Get());
+			layoutPosition.y + g_caretPosition.y + g_caretMetrics.height),
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_CARET)));
 	}
 
 	if (g_isDragging)
 	{
-		g_hwndRenderTarget->DrawRectangle(D2D1::RectF(g_start.Location.x, g_start.Location.y, g_current.Location.x, g_current.Location.y), g_redBrush.Get());
+		g_hwndRenderTarget->DrawRectangle(D2D1::RectF(g_start.Location.x, g_start.Location.y, g_current.Location.x, g_current.Location.y), 
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_DRAG_RECT)));
 	}
 
 	if (g_hasTextSelectionRectangle)
 	{
-		g_hwndRenderTarget->FillRectangle(g_textSelectionRectangle, g_selectionBrush.Get());
-		g_hwndRenderTarget->DrawRectangle(g_textSelectionRectangle, g_blackBrush.Get(), 1.0f, g_marchingAnts[g_marchingAntsIndex / 5].Get());
+		g_hwndRenderTarget->FillRectangle(g_textSelectionRectangle, g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_SELECTION)));
+		g_hwndRenderTarget->DrawRectangle(g_textSelectionRectangle, 
+			g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_SELECTION_BORDER)),
+			1.0f, g_marchingAnts[g_marchingAntsIndex / 5].Get());
 	}
 }
 
@@ -843,7 +856,7 @@ void Draw(WindowHandles windowHandles)
 	}
 
 	g_hwndRenderTarget->BeginDraw();
-	g_hwndRenderTarget->Clear(D2D1::ColorF(D2D1::ColorF::LightGray));
+	g_hwndRenderTarget->Clear(g_theme.GetColor(ColumnMode::THEME_COLOR::UI_BACKGROUND));
 
 	if (g_isFileLoaded)
 	{
@@ -1040,14 +1053,14 @@ void ScrollTo(UINT index, ScrollToStyle scrollStyle)
 	if (scrollAmount < 0)
 		scrollAmount = 0;
 
-	if (scrollAmount > g_verticalScrollLimit)
-		scrollAmount = g_verticalScrollLimit;
+	if (scrollAmount > (float)g_verticalScrollLimit)
+		scrollAmount = (float)g_verticalScrollLimit;
 
 	g_layoutInfo.SetPositionY(-scrollAmount);
 
 	UpdateTextSelectionRectangle();
 
-	scrollInfo.nPos = scrollAmount;
+	scrollInfo.nPos = (int)scrollAmount;
 	SetScrollInfo(documentHwnd, SB_VERT, &scrollInfo, TRUE);
 	InvalidateRect(documentHwnd, nullptr, FALSE);
 }
@@ -1577,6 +1590,7 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		return;
 
 	g_caretBlinkState = 0;
+	g_updatesSinceLastEdit = 0;
 	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
@@ -1872,8 +1886,21 @@ void OnKeyUp(WindowHandles windowHandles, WPARAM wParam)
 	}
 }
 
+void ConfirmEdits()
+{
+	if (g_themeManager.IsEditingTheme(g_theme, g_fileFullPath))
+	{
+		g_themeManager.LoadThemeFromText(g_allText, g_theme);
+	}
+}
+
 void Update()
 {
+	g_updatesSinceLastEdit++;
+	if (!g_allText.empty() && g_updatesSinceLastEdit == g_numUpdatesWithoutEditBeforeConfirmingEdits)
+	{
+		ConfirmEdits();
+	}
 	if (g_marchingAnts.size() == 0)
 		return;
 
@@ -1956,6 +1983,7 @@ void OnMouseWheel(WindowHandles windowHandles, WPARAM wParam)
 
 void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName)
 {
+	PromptToSaveUnsavedChanges();
 	SetCurrentFileNameAndUpdateWindowTitle(windowHandles, fileName);
 
 	LoadOrCreateFileResult loadFileResult = LoadOrCreateFileContents(fileName);
@@ -2003,6 +2031,12 @@ void OnOpen(WindowHandles windowHandles)
 	if (!!GetOpenFileName(&ofn))
 	{
 		OpenImpl(windowHandles, ofn.lpstrFile);
+		std::filesystem::path path = ofn.lpstrFile;
+		if (path.extension() == L".cmt") {
+			if (!g_themeManager.LoadTheme(path.filename(), g_theme, false)) {
+				MessageBox(NULL, L"There was an error loading the theme.", ofn.lpstrFile, MB_OK);
+			}
+		}
 	}
 }
 
@@ -2762,7 +2796,7 @@ void OnPrint(WindowHandles windowHandles)
 	m_d2dContextForPrint->SetTarget(printedWork.Get());
 	m_d2dContextForPrint->BeginDraw();
 	m_d2dContextForPrint->Clear();
-	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_blackBrush.Get());
+	m_d2dContextForPrint->DrawTextLayout(D2D1::Point2F(0, 0), g_textLayout.Get(), g_brushCache.GetBrush(g_theme.GetColor(ColumnMode::THEME_COLOR::TEXT_DEFAULT)));
 	VerifyHR(m_d2dContextForPrint->EndDraw());
 	VerifyHR(printedWork->Close());
 
@@ -2834,6 +2868,93 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
 	 }	 
 }
 
+void OnThemesRescan(WindowHandles windowHandles, bool skipRescan)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU themesMenu;
+	int themesRescanMenuPos;
+	FindMenuPos(toplevelMenu, ID_THEMES_RESCAN, themesMenu, themesRescanMenuPos);
+
+	int separatorIndex = themesRescanMenuPos + 1;
+
+	int numItems = GetMenuItemCount(themesMenu);
+	for (int i = numItems - 1; i > separatorIndex; i--)
+	{
+		HMENU m = (HMENU)(UINT_PTR)GetMenuItemID(themesMenu, i);
+		DestroyMenu(m);
+		RemoveMenu(themesMenu, i, MF_BYPOSITION);
+	}
+
+	if (!skipRescan)
+	{
+		g_themeManager.ScanForThemes();
+	}
+	UINT id = ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX;
+	for (auto& str : g_themeManager.GetAvailableThemes())
+	{
+		AppendMenu(themesMenu, MF_STRING, id, str.c_str());
+		//If already active:
+		if (g_theme.GetName().compare(str.c_str()) == 0)
+		{
+			CheckMenuItem(themesMenu, id, MF_BYCOMMAND | MF_CHECKED);
+		}
+		id++;
+	}
+}
+
+LRESULT CALLBACK ThemeNameQueryCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK)
+		{
+			HWND editBox = GetDlgItem(hDlg, IDC_THEMENAME_EDITBOX);
+			assert(editBox != NULL);
+			wchar_t textBuffer[64]{};
+			int numChars = Static_GetText(editBox, textBuffer, _countof(textBuffer));
+			ColumnMode::Theme theme;
+			ColumnMode::Theme::CreateDefaultTheme(theme);
+			theme.SetName(textBuffer);
+			if (g_themeManager.SaveTheme(theme))
+			{
+				
+				OpenImpl(g_windowManager.GetWindowHandles(), g_themeManager.GetThemeFilepath(theme).c_str());
+				g_theme = theme;
+			}
+			EndDialog(hDlg, LOWORD(wParam));
+			return TRUE;
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
+		{
+			EndDialog(hDlg, LOWORD(wParam));
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
+}
+
+void OnCreateTheme(HWND hwnd, HINSTANCE hInst)
+{
+	DialogBox(hInst, MAKEINTRESOURCE(IDD_THEMENAMEQUERY), hwnd, ThemeNameQueryCallback);
+}
+
+bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id)
+{
+	static_assert(ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX);
+
+	if (id >= ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX)
+	{
+		OnMaybeThemeSelected(windowHandles, id);
+	}
+	else if (id >= ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX)
+	{
+		return OnMaybePluginSelected(windowHandles, id);
+	}
+	return false;
+}
+
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 {
 	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
@@ -2866,6 +2987,70 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 		//TODO: Should probably be able to disbale plugins :P
 	}
 	return true;
+}
+
+bool OnMaybeThemeSelected(WindowHandles windowHandles, int id)
+{
+	HMENU toplevelMenu = GetMenu(windowHandles.TopLevel);
+	HMENU themesMenu;
+	int themesRescanMenuPos;
+	FindMenuPos(toplevelMenu, ID_THEMES_RESCAN, themesMenu, themesRescanMenuPos);
+	int numItems = GetMenuItemCount(themesMenu);
+	if (id - ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > numItems)
+	{
+		return false;
+	}
+	WCHAR buff[64];
+	int size = GetMenuString(themesMenu, id, buff, 64, MF_BYCOMMAND);
+	if (size > 0 && g_theme.GetName().compare(buff) != 0)
+	{
+		g_themeManager.LoadTheme(buff, g_theme);
+		OnThemesRescan(windowHandles, true); // Handle the check marking-ing in probably the worst way
+	}
+	return true;
+}
+
+void PromptToSaveUnsavedChanges()
+{
+	if (g_hasUnsavedChanges)
+	{
+		std::wstring dialogText;
+		if (g_fileName.length() > 0)
+		{
+			dialogText.append(L"Save changes to ");
+			dialogText.append(g_fileName);
+		}
+		else
+		{
+			dialogText.append(L"Save this document");
+		}
+		dialogText.append(L"?");
+
+		int dialogResult = MessageBox(
+			nullptr,
+			dialogText.c_str(),
+			L"ColumnMode",
+			MB_YESNOCANCEL);
+
+		if (dialogResult == IDCANCEL)
+			return;
+
+		if (dialogResult == IDYES)
+		{
+			if (g_fileName.length() > 0)
+			{
+				OnSave(g_windowManager.GetWindowHandles());
+			}
+			else
+			{
+				OnSaveAs(g_windowManager.GetWindowHandles());
+			}
+		}
+		else
+		{
+			assert(dialogResult == IDNO);
+		}
+	}
 }
 
 void OnInitializeDocumentProperties(HWND hDlg)
@@ -3108,45 +3293,7 @@ void OnTextMode(WindowHandles windowHandles)
 
 void OnClose(WindowHandles windowHandles)
 {
-	if (g_hasUnsavedChanges)
-	{
-		std::wstring dialogText;
-		if (g_fileName.length() > 0)
-		{
-			dialogText.append(L"Save changes to ");
-			dialogText.append(g_fileName);
-		}
-		else
-		{
-			dialogText.append(L"Save this document");
-		}
-		dialogText.append(L"?");
-
-		int dialogResult = MessageBox(
-			nullptr,
-			dialogText.c_str(),
-			L"ColumnMode",
-			MB_YESNOCANCEL);
-
-		if (dialogResult == IDCANCEL)
-			return;
-
-		if (dialogResult == IDYES)
-		{
-			if (g_fileName.length() > 0)
-			{
-				OnSave(windowHandles);
-			}
-			else
-			{
-				OnSaveAs(windowHandles);
-			}
-		}
-		else
-		{
-			assert(dialogResult == IDNO);
-		}
-	}
+	PromptToSaveUnsavedChanges();
 
 	DestroyWindow(windowHandles.TopLevel);
 }

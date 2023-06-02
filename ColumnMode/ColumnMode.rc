@@ -70,6 +70,12 @@ BEGIN
     BEGIN
         MENUITEM "Diagram Mode",                ID_OPTIONS_DIAGRAMMODE, CHECKED
         MENUITEM "Text Mode",                   ID_OPTIONS_TEXTMODE
+        POPUP "Themes"
+        BEGIN
+            MENUITEM "Create New Theme",            ID_THEMES_CREATENEWTHEME
+            MENUITEM "Rescan",                      ID_THEMES_RESCAN
+            MENUITEM SEPARATOR
+        END
     END
     POPUP "Plugins"
     BEGIN
@@ -146,6 +152,17 @@ BEGIN
     EDITTEXT        IDC_FIND_EDITBOX,66,7,106,14,ES_AUTOHSCROLL
 END
 
+IDD_THEMENAMEQUERY DIALOGEX 0, 0, 179, 53
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Create New Theme"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "OK",IDOK,64,28,50,14
+    PUSHBUTTON      "CANCEL",IDCANCEL,122,28,50,14
+    LTEXT           "Theme Name:",-1,7,9,45,8
+    EDITTEXT        IDC_THEMENAME_EDITBOX,66,7,106,14,ES_AUTOHSCROLL
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -172,6 +189,14 @@ BEGIN
     END
 
     IDD_FIND_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 172
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 46
+    END
+
+    IDD_THEMENAMEQUERY, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 172
