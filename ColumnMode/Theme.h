@@ -78,6 +78,7 @@ namespace ColumnMode
 	private:
 		std::filesystem::path m_themesRootPath;
 		std::vector<std::wstring> m_availableThemes;
+		bool themeTextInvalidOnLastLoadFromText = false;
 
 	public:
 		static const int THEME_MENU_ITEM_START_INDEX = 5000;//chosen arbitrarily. hopefully the resource generator doesn't conflict

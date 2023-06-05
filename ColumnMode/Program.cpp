@@ -2016,6 +2016,17 @@ void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName)
 	EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 	EnableMenuItem(windowHandles, ID_FILE_SAVE);
 	g_pluginManager.PF_OnOpen_ALL(fileName);
+
+	std::filesystem::path path = fileName;
+	if (path.extension() == L".cmt")
+	{
+		if (!g_themeManager.LoadTheme(path.filename(), g_theme, false))
+		{
+			WCHAR buff[256];
+			std::swprintf(buff, 256, L"There was an error loading the theme.\nWhen you have fixed the issue, CTRL+S and then select it as the active theme from Options > Themes > %s.", path.filename().replace_extension(L"").c_str());
+			MessageBox(NULL, buff, fileName, MB_OK);
+		}
+	}
 }
 
 void OnOpen(WindowHandles windowHandles)
@@ -2054,12 +2065,6 @@ void OnOpen(WindowHandles windowHandles)
 	if (!!GetOpenFileName(&ofn))
 	{
 		OpenImpl(windowHandles, ofn.lpstrFile);
-		std::filesystem::path path = ofn.lpstrFile;
-		if (path.extension() == L".cmt") {
-			if (!g_themeManager.LoadTheme(path.filename(), g_theme, false)) {
-				MessageBox(NULL, L"There was an error loading the theme.", ofn.lpstrFile, MB_OK);
-			}
-		}
 	}
 }
 
@@ -3058,7 +3063,17 @@ bool OnMaybeThemeSelected(WindowHandles windowHandles, int id)
 	int size = GetMenuString(themesMenu, id, buff, 64, MF_BYCOMMAND);
 	if (size > 0 && g_theme.GetName().compare(buff) != 0)
 	{
-		g_themeManager.LoadTheme(buff, g_theme);
+		if (!g_themeManager.LoadTheme(buff, g_theme))
+		{
+			int dialogResult = MessageBox(NULL, L"There was an error loading the theme.\nOpen it for editing and try to fix the issue?", buff, MB_ICONERROR | MB_YESNO);
+			if (dialogResult == IDYES)
+			{
+				ColumnMode::Theme temp{};
+				temp.SetName(buff);
+				std::wstring path = g_themeManager.GetThemeFilepath(temp);
+				OpenImpl(g_windowManager.GetWindowHandles(), path.c_str());
+			}
+		}
 		OnThemesRescan(windowHandles, true); // Handle the check marking-ing in probably the worst way
 	}
 	return true;
