@@ -6,6 +6,8 @@ void inline VerifyHR(HRESULT hr)
 		__debugbreak();
 }
 
+#define BAIL_ON_FAIL_HR(hrFunc) {HRESULT hr = hrFunc; if(FAILED(hr)) { return hr;}}
+
 void inline VerifyBool(BOOL b)
 {
 	if (!b)

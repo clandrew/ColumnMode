@@ -59,6 +59,91 @@ HRESULT ColumnMode::PluginManager::ScanForPlugins()
 	return S_OK;
 }
 
+HRESULT LoadLibraryHelper(std::filesystem::path path, HMODULE& out_pluginModule)
+{
+	DWORD flags = LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR;
+	out_pluginModule = LoadLibraryEx(path.c_str(), NULL, flags);
+	if (out_pluginModule == NULL)
+	{
+		DWORD err = GetLastError();
+		WCHAR buff[1024];
+		std::swprintf(buff, 1024, _T("Plugin not found or DLL failed to load.\nError code: %d\nPath: %s"), err, path.c_str());
+		MessageBox(NULL, buff, L"Error loading plugin DLL", MB_OK | MB_ICONERROR);
+
+		return E_INVALIDARG;
+	}
+	return S_OK;
+}
+
+HRESULT LoadPluginDependenciesHelper(PFN_QUERYCOLUMNMODEPLUGINDEPENDENCIES pfnQueryDeps, std::filesystem::path pluginDir, HMODULE pluginModule)
+{
+	UINT numDeps = 0;
+	std::wstring pluginName = pluginDir.filename(); //plugin name is the last part of the pluginDir
+
+	//query num dependencies and create dependency list
+	HRESULT hr = pfnQueryDeps(&numDeps, nullptr);
+	if(FAILED(hr))
+	{
+		MessageBoxHelper_FormattedBody(MB_ICONERROR | MB_OK, L"Failed to get dependencies", L"%s returned failure code %d when calling QueryColumnModePluginDependencies (1st call).", pluginName, hr);
+		return hr;
+	}
+	ColumnMode::PluginDependency defaultInit{ 0, nullptr };
+	std::vector<ColumnMode::PluginDependency> deps = std::vector<ColumnMode::PluginDependency>(numDeps, defaultInit);
+
+	// query sizes of dependency names and allocate space
+	hr = pfnQueryDeps(&numDeps, deps.data());
+	if (FAILED(hr))
+	{
+		MessageBoxHelper_FormattedBody(MB_ICONERROR | MB_OK, L"Failed to get dependencies", L"%s returned failure code %d when calling QueryColumnModePluginDependencies (2nd call).", pluginName, hr);
+		return hr;
+	}
+	for (auto depIt = deps.begin(); depIt != deps.end(); depIt++)
+	{
+		depIt->pName = (WCHAR*)malloc((depIt->length +1) * sizeof(WCHAR)); //add one extra char of padding so that we can ensure null-terminated
+		if (depIt->pName == nullptr)
+		{
+			hr = E_OUTOFMEMORY;
+			goto cleanup_and_exit;
+		}
+	}
+
+	// query dependency names
+	hr = pfnQueryDeps(&numDeps, deps.data());
+	if (FAILED(hr))
+	{
+		MessageBoxHelper_FormattedBody(MB_ICONERROR | MB_OK, L"Failed to get dependencies", L"%s returned failure code %d when calling QueryColumnModePluginDependencies (3rd call).", pluginName, hr);
+		goto cleanup_and_exit;
+	}
+
+	//Now we need to free the plugin library in case it has a load time library that does weird checks for runtime dependencies in dllmain (looking at you dxcompiler.dll)
+	FreeLibrary(pluginModule);
+	//Finally load the requested libraries
+	for (auto depIt = deps.begin(); depIt != deps.end(); depIt++)
+	{
+		depIt->pName[depIt->length] = L'\0'; //ensure null-terminated
+		std::filesystem::path depFullPath = pluginDir / depIt->pName;
+		HMODULE hm;
+		if (FAILED(LoadLibraryHelper(depFullPath, hm)))
+		{
+			hr = E_FAIL;
+			goto cleanup_and_exit;
+			//maybe unload dlls?
+		}
+	}
+
+	cleanup_and_exit:
+	// free allocated strings
+	for (auto depIt = deps.begin(); depIt != deps.end(); depIt++)
+	{
+		if (depIt->pName != nullptr)
+		{
+			free(depIt->pName);
+			depIt->pName = nullptr;
+		}
+	}
+	return hr;
+}
+
 HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 {
 	std::filesystem::path path(m_modulesRootPath);
@@ -66,20 +151,28 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 		.append(pluginName)			//Plugin is a DLL file of the plugin name
 		.replace_extension(L".dll");
 
-	DWORD flags =  LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR;
-	HMODULE pluginModule = LoadLibraryEx(path.c_str(), NULL, flags);
-	if (pluginModule == NULL)
+	
+
+	HMODULE pluginModule;
+	BAIL_ON_FAIL_HR(LoadLibraryHelper(path, pluginModule));
+
+	PFN_QUERYCOLUMNMODEPLUGINDEPENDENCIES pfnQueryDeps =
+		reinterpret_cast<PFN_QUERYCOLUMNMODEPLUGINDEPENDENCIES>(GetProcAddress(pluginModule, "QueryColumnModePluginDependencies"));
+
+	if (pfnQueryDeps != nullptr)
 	{
-		DWORD err = GetLastError();
-		WCHAR buff[1024];
-		std::swprintf(buff, 1024, _T("Plugin not found or DLL failed to load.\nError code: %d\nPath: %s"), err, path.c_str());
-		MessageBox(NULL, buff, L"Error loading plugin DLL", MB_OK | MB_ICONERROR);
-		
-		return E_INVALIDARG;
+		BAIL_ON_FAIL_HR(LoadPluginDependenciesHelper(pfnQueryDeps, m_modulesRootPath / pluginName, pluginModule));
 	}
+	BAIL_ON_FAIL_HR(LoadLibraryHelper(path, pluginModule));
 
 	PFN_OPENCOLUMNMODEPLUGIN pfnOpenPlugin = 
 		reinterpret_cast<PFN_OPENCOLUMNMODEPLUGIN>(GetProcAddress(pluginModule, "OpenColumnModePlugin"));
+
+	if (pfnOpenPlugin == nullptr)
+	{
+		MessageBoxHelper_FormattedBody(MB_ICONERROR | MB_OK, L"Failed to open plugin", L"%s doesn't export the OpenColumnModePlugin function.", pluginName);
+		return E_FAIL;
+	}
 
 	PluginFunctions pluginFuncs = { 0 };
 	OpenPluginArgs args{};
