@@ -43,6 +43,7 @@ void OnPrint(WindowHandles windowHandles);
 void OnPluginRescan(WindowHandles windowHandles, bool skipRescan=false);
 void OnThemesRescan(WindowHandles windowHandles, bool skipRescan = false);
 void OnCreateTheme(HWND hwnd, HINSTANCE hInst);
+void OnEditTheme(HWND hwnd, HINSTANCE hInst);
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);

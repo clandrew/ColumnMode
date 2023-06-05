@@ -2963,6 +2963,37 @@ void OnCreateTheme(HWND hwnd, HINSTANCE hInst)
 	DialogBox(hInst, MAKEINTRESOURCE(IDD_THEMENAMEQUERY), hwnd, ThemeNameQueryCallback);
 }
 
+void OnEditTheme(HWND hwnd, HINSTANCE hInst)
+{
+	std::filesystem::path currentThemePath = g_themeManager.GetThemeFilepath(g_theme);
+
+	OPENFILENAME ofn;       // common dialog box structure
+	wchar_t szFile[MAX_PATH];
+
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = g_windowManager.GetWindowHandles().TopLevel;
+	ofn.lpstrFile = szFile;
+
+	// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+	// use the contents of szFile to initialize itself.
+	ofn.lpstrFile[0] = L'\0';
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"*.cmt\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = currentThemePath.parent_path().c_str();
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	// Display the Open dialog box. 
+
+	if (!!GetOpenFileName(&ofn))
+	{
+		OpenImpl(g_windowManager.GetWindowHandles(), ofn.lpstrFile);
+	}
+}
+
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id)
 {
 	static_assert(ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX);

@@ -74,6 +74,7 @@ BEGIN
         POPUP "Themes"
         BEGIN
             MENUITEM "Create New Theme",            ID_THEMES_CREATENEWTHEME
+            MENUITEM "Edit a Theme",                ID_THEMES_EDIT
             MENUITEM "Rescan",                      ID_THEMES_RESCAN
             MENUITEM SEPARATOR
         END
