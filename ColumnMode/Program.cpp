@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include <optional>
+
 #include "Program.h"
 #include "Resource.h"
 #include "Verify.h"
@@ -110,6 +112,7 @@ class Status
 	int m_caretRow;
 	int m_caretColumn;
 	Mode m_mode;
+	std::optional<std::wstring> m_warning;
 
 	void RefreshStatusBar(HWND statusBarLabelHwnd)
 	{
@@ -117,6 +120,11 @@ class Status
 		std::wstringstream label;
 		label << L"Row: " << (m_caretRow + 1) << "        Col: " << (m_caretColumn + 1);
 		label << L"        Mode: " << (m_mode == Mode::TextMode ? L"Text" : L"Diagram");
+
+		if (m_warning.has_value())
+		{
+			label << L"        WARNING: " << m_warning.value();
+		}
 
 		Static_SetText(statusBarLabelHwnd, label.str().c_str());
 	}
@@ -145,6 +153,21 @@ public:
 	Mode GetMode() const
 	{
 		return m_mode;
+	}
+
+	void SetWarning(std::wstring str, HWND statusBarLabelHwnd)
+	{
+		m_warning = str;
+		RefreshStatusBar(statusBarLabelHwnd);
+	}
+
+	void ClearWarning(std::wstring str, HWND statusBarLabelHwnd)
+	{
+		if (m_warning.has_value() && m_warning.value() == str)
+		{
+			m_warning.reset();
+		}
+		RefreshStatusBar(statusBarLabelHwnd);
 	}
 
 } g_status;
@@ -3306,4 +3329,14 @@ std::wstring& GetAllText()
 ColumnMode::FindTool& GetFindTool()
 {
 	return g_findTool;
+}
+
+void SetWarningMessage(std::wstring str)
+{
+	g_status.SetWarning(str, g_windowManager.GetWindowHandles().StatusBarLabel);
+}
+
+void ClearWarningMssage(std::wstring str)
+{
+	g_status.ClearWarning(str, g_windowManager.GetWindowHandles().StatusBarLabel);
 }

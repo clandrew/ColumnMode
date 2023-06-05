@@ -84,3 +84,5 @@ enum class ScrollToStyle
 void ScrollTo(UINT index, ScrollToStyle scrollStyle = ScrollToStyle::CENTER);
 
 ColumnMode::FindTool& GetFindTool();
+void SetWarningMessage(std::wstring str);
+void ClearWarningMssage(std::wstring str);
