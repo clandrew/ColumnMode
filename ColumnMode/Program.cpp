@@ -1915,6 +1915,7 @@ void ConfirmEdits()
 	{
 		g_themeManager.LoadThemeFromText(g_allText, g_theme);
 	}
+	g_pluginManager.PF_OnTypingComplete_ALL(g_allText.length(), g_allText.c_str());
 }
 
 void Update()

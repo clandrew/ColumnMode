@@ -174,7 +174,8 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 		return E_FAIL;
 	}
 
-	PluginFunctions pluginFuncs = { 0 };
+	PluginFunctions pluginFuncs{};
+	ZeroMemory(&pluginFuncs, sizeof(pluginFuncs));
 	OpenPluginArgs args{};
 	args.apiVersion = c_ColumnModePluginApiVersion;
 	args.hPlugin = NULL;

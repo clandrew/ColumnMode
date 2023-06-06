@@ -4,7 +4,7 @@
 
 namespace ColumnMode
 {
-	constexpr UINT c_ColumnModePluginApiVersion = 1;
+	constexpr UINT c_ColumnModePluginApiVersion = 2;
 
 #pragma region ColumnModeCallbacks
 
@@ -32,6 +32,7 @@ namespace ColumnMode
 	typedef HRESULT(APIENTRY* PFN_PF_ONOPEN)(HANDLE, LPCWSTR);
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVE)(HANDLE, LPCWSTR);
 	typedef HRESULT(APIENTRY* PFN_PF_ONSAVEAS)(HANDLE, LPCWSTR);
+	typedef HRESULT(APIENTRY* PFN_PF_ONTYPINGCOMPLETE)(HANDLE, const size_t numChars, const WCHAR* pAllText);
 
 	//Plugin Life cycle
 	typedef HRESULT(APIENTRY* PFN_PF_ONLOADCOMPLETED)(HANDLE);	//Called after OpenColumnModePlugin
@@ -45,6 +46,9 @@ namespace ColumnMode
 
 		PFN_PF_ONLOADCOMPLETED pfnOnLoadCompleted;
 		PFN_PF_ONSHUTDOWN pfnOnShutdown;
+
+		// API version >= 2
+		PFN_PF_ONTYPINGCOMPLETE pfnOnTypingComplete;
 	};
 
 #pragma endregion
