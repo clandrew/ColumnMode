@@ -192,6 +192,7 @@ DWRITE_HIT_TEST_METRICS g_caretMetrics;
 int g_caretBlinkState;
 
 int g_updatesSinceLastEdit;
+bool g_editMadeSinceLastConfirmationOfEdits = false;
 const int g_numUpdatesWithoutEditBeforeConfirmingEdits = 50;
 
 std::wstring g_allText;
@@ -756,7 +757,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isTrackingLeaveClientArea = false;
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
-	g_updatesSinceLastEdit = 0;
+	g_updatesSinceLastEdit = g_numUpdatesWithoutEditBeforeConfirmingEdits+1; //init to more than the confirmation value so we don't prematurely confirm
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
@@ -1613,12 +1614,11 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		return;
 
 	g_caretBlinkState = 0;
-	g_updatesSinceLastEdit = 0;
 	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
 		DisableTextSelectionRectangle(windowHandles);
-
+		g_updatesSinceLastEdit = 0; // only register newly typed characters for calling ConfirmEdits
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
 
 		if (g_status.GetMode() == Mode::DiagramMode)
