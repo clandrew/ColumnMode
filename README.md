@@ -12,6 +12,8 @@ ColumnMode is a lightweight, column-based text editor.
 * Supports copying and pasting
 * Supports undo
 * Supports print
+* Supports extension via plugins
+* Supports [Themes](Manual/Themes.md) to change the look and feel
 
 ![Example image](https://raw.githubusercontent.com/clandrew/ColumnMode/master/Images/CutPaste.gif "Example image")
 ![Example image](https://raw.githubusercontent.com/clandrew/ColumnMode/master/Images/Undo.gif "Example image")

@@ -1,4 +1,6 @@
 #include "stdafx.h"
+#include <optional>
+
 #include "Program.h"
 #include "Resource.h"
 #include "Verify.h"
@@ -110,6 +112,7 @@ class Status
 	int m_caretRow;
 	int m_caretColumn;
 	Mode m_mode;
+	std::optional<std::wstring> m_warning;
 
 	void RefreshStatusBar(HWND statusBarLabelHwnd)
 	{
@@ -117,6 +120,11 @@ class Status
 		std::wstringstream label;
 		label << L"Row: " << (m_caretRow + 1) << "        Col: " << (m_caretColumn + 1);
 		label << L"        Mode: " << (m_mode == Mode::TextMode ? L"Text" : L"Diagram");
+
+		if (m_warning.has_value())
+		{
+			label << L"        WARNING: " << m_warning.value();
+		}
 
 		Static_SetText(statusBarLabelHwnd, label.str().c_str());
 	}
@@ -147,6 +155,21 @@ public:
 		return m_mode;
 	}
 
+	void SetWarning(std::wstring str, HWND statusBarLabelHwnd)
+	{
+		m_warning = str;
+		RefreshStatusBar(statusBarLabelHwnd);
+	}
+
+	void ClearWarning(std::wstring str, HWND statusBarLabelHwnd)
+	{
+		if (m_warning.has_value() && m_warning.value() == str)
+		{
+			m_warning.reset();
+		}
+		RefreshStatusBar(statusBarLabelHwnd);
+	}
+
 } g_status;
 
 bool g_isDragging;
@@ -169,6 +192,7 @@ DWRITE_HIT_TEST_METRICS g_caretMetrics;
 int g_caretBlinkState;
 
 int g_updatesSinceLastEdit;
+bool g_editMadeSinceLastConfirmationOfEdits = false;
 const int g_numUpdatesWithoutEditBeforeConfirmingEdits = 50;
 
 std::wstring g_allText;
@@ -733,7 +757,7 @@ void InitGraphics(WindowHandles windowHandles)
 	g_isTrackingLeaveClientArea = false;
 	g_hasTextSelectionRectangle = false;
 	g_caretBlinkState = 0;
-	g_updatesSinceLastEdit = 0;
+	g_updatesSinceLastEdit = g_numUpdatesWithoutEditBeforeConfirmingEdits+1; //init to more than the confirmation value so we don't prematurely confirm
 	g_isShiftDown = false;
 	g_hasUnsavedChanges = false;
 	g_needsDeviceRecreation = false;
@@ -1590,12 +1614,11 @@ void OnKeyDown(WindowHandles windowHandles, WPARAM wParam)
 		return;
 
 	g_caretBlinkState = 0;
-	g_updatesSinceLastEdit = 0;
 	CheckModifierKeys(); // modifiers could be pressed when a message went to a different handler
 	if (g_keyOutput[wParam].Valid)
 	{
 		DisableTextSelectionRectangle(windowHandles);
-
+		g_updatesSinceLastEdit = 0; // only register newly typed characters for calling ConfirmEdits
 		wchar_t chr = g_isShiftDown ? g_keyOutput[wParam].Uppercase : g_keyOutput[wParam].Lowercase;
 
 		if (g_status.GetMode() == Mode::DiagramMode)
@@ -1892,6 +1915,7 @@ void ConfirmEdits()
 	{
 		g_themeManager.LoadThemeFromText(g_allText, g_theme);
 	}
+	g_pluginManager.PF_OnTypingComplete_ALL(g_allText.length(), g_allText.c_str());
 }
 
 void Update()
@@ -1993,6 +2017,17 @@ void OpenImpl(WindowHandles windowHandles, LPCWSTR fileName)
 	EnableMenuItem(windowHandles, ID_FILE_REFRESH);
 	EnableMenuItem(windowHandles, ID_FILE_SAVE);
 	g_pluginManager.PF_OnOpen_ALL(fileName);
+
+	std::filesystem::path path = fileName;
+	if (path.extension() == L".cmt")
+	{
+		if (!g_themeManager.LoadTheme(path.filename(), g_theme, false))
+		{
+			WCHAR buff[256];
+			std::swprintf(buff, 256, L"There was an error loading the theme.\nWhen you have fixed the issue, CTRL+S and then select it as the active theme from Options > Themes > %s.", path.filename().replace_extension(L"").c_str());
+			MessageBox(NULL, buff, fileName, MB_OK);
+		}
+	}
 }
 
 void OnOpen(WindowHandles windowHandles)
@@ -2031,12 +2066,6 @@ void OnOpen(WindowHandles windowHandles)
 	if (!!GetOpenFileName(&ofn))
 	{
 		OpenImpl(windowHandles, ofn.lpstrFile);
-		std::filesystem::path path = ofn.lpstrFile;
-		if (path.extension() == L".cmt") {
-			if (!g_themeManager.LoadTheme(path.filename(), g_theme, false)) {
-				MessageBox(NULL, L"There was an error loading the theme.", ofn.lpstrFile, MB_OK);
-			}
-		}
 	}
 }
 
@@ -2940,6 +2969,37 @@ void OnCreateTheme(HWND hwnd, HINSTANCE hInst)
 	DialogBox(hInst, MAKEINTRESOURCE(IDD_THEMENAMEQUERY), hwnd, ThemeNameQueryCallback);
 }
 
+void OnEditTheme(HWND hwnd, HINSTANCE hInst)
+{
+	std::filesystem::path currentThemePath = g_themeManager.GetThemeFilepath(g_theme);
+
+	OPENFILENAME ofn;       // common dialog box structure
+	wchar_t szFile[MAX_PATH];
+
+	ZeroMemory(&ofn, sizeof(ofn));
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = g_windowManager.GetWindowHandles().TopLevel;
+	ofn.lpstrFile = szFile;
+
+	// Set lpstrFile[0] to '\0' so that GetOpenFileName does not 
+	// use the contents of szFile to initialize itself.
+	ofn.lpstrFile[0] = L'\0';
+	ofn.nMaxFile = sizeof(szFile);
+	ofn.lpstrFilter = L"*.cmt\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = currentThemePath.parent_path().c_str();
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+	// Display the Open dialog box. 
+
+	if (!!GetOpenFileName(&ofn))
+	{
+		OpenImpl(g_windowManager.GetWindowHandles(), ofn.lpstrFile);
+	}
+}
+
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id)
 {
 	static_assert(ColumnMode::ThemeManager::THEME_MENU_ITEM_START_INDEX > ColumnMode::PluginManager::PLUGIN_MENU_ITEM_START_INDEX);
@@ -3004,7 +3064,17 @@ bool OnMaybeThemeSelected(WindowHandles windowHandles, int id)
 	int size = GetMenuString(themesMenu, id, buff, 64, MF_BYCOMMAND);
 	if (size > 0 && g_theme.GetName().compare(buff) != 0)
 	{
-		g_themeManager.LoadTheme(buff, g_theme);
+		if (!g_themeManager.LoadTheme(buff, g_theme))
+		{
+			int dialogResult = MessageBox(NULL, L"There was an error loading the theme.\nOpen it for editing and try to fix the issue?", buff, MB_ICONERROR | MB_YESNO);
+			if (dialogResult == IDYES)
+			{
+				ColumnMode::Theme temp{};
+				temp.SetName(buff);
+				std::wstring path = g_themeManager.GetThemeFilepath(temp);
+				OpenImpl(g_windowManager.GetWindowHandles(), path.c_str());
+			}
+		}
 		OnThemesRescan(windowHandles, true); // Handle the check marking-ing in probably the worst way
 	}
 	return true;
@@ -3306,4 +3376,14 @@ std::wstring& GetAllText()
 ColumnMode::FindTool& GetFindTool()
 {
 	return g_findTool;
+}
+
+void SetWarningMessage(std::wstring str)
+{
+	g_status.SetWarning(str, g_windowManager.GetWindowHandles().StatusBarLabel);
+}
+
+void ClearWarningMssage(std::wstring str)
+{
+	g_status.ClearWarning(str, g_windowManager.GetWindowHandles().StatusBarLabel);
 }

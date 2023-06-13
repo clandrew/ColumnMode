@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "../External/json.hpp"
+
+#include "Program.h"
 #include "Theme.h"
 #include "Verify.h"
 #include "utf8Conversion.h"
@@ -185,10 +187,18 @@ bool ColumnMode::ThemeManager::LoadThemeFromText(std::wstring jsonString, Theme&
 	{
 		json data = json::parse(jsonString);
 		out = data;
+		themeTextInvalidOnLastLoadFromText = false;
+		ClearWarningMssage(L"Theme JSON invalid!");
 		return true;
 	}
 	catch (...)
 	{
+		if (!themeTextInvalidOnLastLoadFromText)
+		{
+			MessageBox(NULL, L"Your latest change broke the theme.\nEnsure that your JSON is well formatted and color values are valid floats.", L"Error parsing Theme", MB_ICONERROR | MB_OK);
+		}
+		themeTextInvalidOnLastLoadFromText = true;
+		SetWarningMessage(L"Theme JSON invalid!");
 		return false;
 	}
 	return false;

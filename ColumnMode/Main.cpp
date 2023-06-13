@@ -114,7 +114,7 @@ void MyRegisterClass(HINSTANCE hInstance)
 	}
 	{
 		// Document window
-		WNDCLASSEXW wcex;
+		WNDCLASSEXW wcex {};
 
 		wcex.cbSize = sizeof(WNDCLASSEX);
 
@@ -315,6 +315,9 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			break;
 		case ID_THEMES_CREATENEWTHEME:
 			OnCreateTheme(hWnd, hInst);
+			break;
+		case ID_THEMES_EDIT:
+			OnEditTheme(hWnd, hInst);
 			break;
 		case ID_FILE_REFRESH:
 			OnRefresh(g_windowHandles);
