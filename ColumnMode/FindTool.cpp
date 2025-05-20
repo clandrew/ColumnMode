@@ -32,7 +32,7 @@ LRESULT FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 		}
 		else if (LOWORD(wParam) == IDCANCEL)
 		{
-			return g_findTool.CloseDialog();
+			return g_findTool.CloseDialog(hDlg);
 		}
 		else if (LOWORD(wParam) == IDOK)
 		{
@@ -120,12 +120,12 @@ bool FindTool::UpdateStringFromDialog(HWND hDlg, int textBoxIdentifier)
 	return true;
 }
 
-void FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
+void FindTool::EnsureDialogCreated(HINSTANCE hinstance, WindowHandles* pWindowHandles)
 {
-	if (!m_hwndFindDialog)
+	if (pWindowHandles->FindTool == nullptr)
 	{
-		m_hwndFindDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), hWnd, FindToolDialogProc);
-		m_editBoxHwnd = GetDlgItem(m_hwndFindDialog, IDC_FIND_EDITBOX);
+		pWindowHandles->FindTool = CreateDialog(hinstance, MAKEINTRESOURCE(IDD_FIND_DIALOG), pWindowHandles->TopLevel, FindToolDialogProc);
+		m_editBoxHwnd = GetDlgItem(pWindowHandles->FindTool, IDC_FIND_EDITBOX);
 	}
 	if (!m_currentSearch.empty())
 	{
@@ -133,23 +133,16 @@ void FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
 		Static_SetText(m_editBoxHwnd, m_currentSearch.data());
 		SendMessage(m_editBoxHwnd, EM_SETSEL, 0, -1);
 	}
-	ShowWindow(m_hwndFindDialog, SW_SHOW);
+	ShowWindow(pWindowHandles->FindTool, SW_SHOW);
 	SetFocus(m_editBoxHwnd);
 }
 
-bool FindTool::TryGetFindDialogHwnd(HWND* pHwnd)
+INT_PTR FindTool::CloseDialog(HWND hFindDialog)
 {
-	*pHwnd = m_hwndFindDialog;
-	return m_hwndFindDialog != NULL;
-}
-
-INT_PTR FindTool::CloseDialog()
-{
-	if (m_hwndFindDialog)
+	if (hFindDialog)
 	{
 		INT_PTR result = 0;
-		EndDialog(m_hwndFindDialog, result);
-		m_hwndFindDialog = NULL;
+		EndDialog(hFindDialog, result);
 		m_editBoxHwnd = NULL;
 		return result;
 	}

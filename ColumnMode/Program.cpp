@@ -2448,9 +2448,9 @@ void OnDelete(WindowHandles windowHandles)
 	RecreateTextLayout();
 }
 
-void OnFind(HINSTANCE hInst, HWND hWnd)
+void OnFind(HINSTANCE hinstance, WindowHandles* pWindowHandles)
 {
-	g_findTool.EnsureDialogCreated(hInst, hWnd);
+	g_findTool.EnsureDialogCreated(hinstance, pWindowHandles);
 }
 
 void OnCut(WindowHandles windowHandles)
@@ -3304,9 +3304,4 @@ void OnClose(WindowHandles windowHandles)
 std::wstring const& GetAllText()
 {
 	return g_allText;
-}
-
-FindTool& GetFindTool()
-{
-	return g_findTool;
 }

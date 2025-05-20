@@ -53,14 +53,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Message loop
 	g_done = false;
-	FindTool& findTool = GetFindTool();
-	HWND findDialogHwnd = NULL;
 	while (!g_done)
 	{
 		const HWND allWindowsForCurrentThread = nullptr;
 		while (PeekMessage(&msg, allWindowsForCurrentThread, 0, 0, PM_REMOVE))
 		{
-			if (findTool.TryGetFindDialogHwnd(&findDialogHwnd) && IsDialogMessage(findDialogHwnd, &msg))
+			if (g_windowHandles.FindTool && IsDialogMessage(g_windowHandles.FindTool, &msg))
 			{
 				// msg has already been processed by Find dialog
 				continue;
@@ -302,7 +300,7 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			OnDelete(g_windowHandles);
 			break;
 		case ID_EDIT_FIND:
-			OnFind(hInst, hWnd);
+			OnFind(hInst, &g_windowHandles);
 			break;
 		case ID_OPTIONS_DIAGRAMMODE:
 			OnDiagramMode(g_windowHandles);

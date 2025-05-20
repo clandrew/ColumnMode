@@ -7,6 +7,7 @@ struct WindowHandles
 	HWND TopLevel;
 	HWND Document;
 	HWND StatusBarLabel;
+	HWND FindTool;
 };
 
 void InitManagers(HINSTANCE hinstance, WindowHandles windowHandles);
@@ -46,7 +47,7 @@ void OnCreateTheme(HWND hwnd, HINSTANCE hInst);
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);
-void OnFind(HINSTANCE hInst, HWND hWnd);
+void OnFind(HINSTANCE hinstance, WindowHandles* pWindowHandles);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
