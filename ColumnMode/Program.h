@@ -61,8 +61,8 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 bool OnMaybeThemeSelected(WindowHandles windowHandles, int id);
 
 // Find tool functions
-bool FindNext();
-bool FindPrev();
+bool FindNext(WindowHandles windowHandles);
+bool FindPrev(WindowHandles windowHandles);
 bool HandleFindWindowEnterPressed(WindowHandles windowHandles);
 bool UpdateFindWindowStringFromDialog(WindowHandles windowHandles);
 void OnFindWindowDialogCreated(WindowHandles windowHandles);

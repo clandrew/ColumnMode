@@ -45,7 +45,6 @@ D2D1_SIZE_U g_documentWindowSize;
 
 LayoutInfo g_layoutInfo;
 
-UINT g_findToolCurrentIndex;
 std::wstring g_findToolCurrentSearch;
 bool g_findToolSearchingForward = true;
 
@@ -3304,45 +3303,51 @@ std::wstring const& GetAllText()
 	return g_allText;
 }
 
-bool FindNext()
+bool FindNext(WindowHandles windowHandles)
 {
-	std::wstring const& text = GetAllText();
-	if (g_findToolCurrentIndex == UINT_MAX) { g_findToolCurrentIndex = 0; }
-	else if (!g_findToolSearchingForward) { g_findToolCurrentIndex += 2; }
+	UINT findToolCurrentIndex = g_caretCharacterIndex;
 
-	size_t index = text.find(g_findToolCurrentSearch.data(), g_findToolCurrentIndex);
+	std::wstring const& text = GetAllText();
+	if (findToolCurrentIndex == UINT_MAX) { findToolCurrentIndex = 0; }
+	else if (!g_findToolSearchingForward) { findToolCurrentIndex += 2; }
+
+	size_t index = text.find(g_findToolCurrentSearch.data(), findToolCurrentIndex);
 	if (index == -1)
 	{
 		MessageBox(NULL, L"Search string not found", L"Error", MB_ICONINFORMATION);
-		g_findToolCurrentIndex = 0;
+		findToolCurrentIndex = 0;
 	}
 	else
 	{
-		g_findToolCurrentIndex = (UINT)(index + 1);
-		ScrollTo(g_findToolCurrentIndex, ScrollToStyle::CENTER);
+		findToolCurrentIndex = (UINT)(index + 1);
+		ScrollTo(findToolCurrentIndex, ScrollToStyle::CENTER);
 		SetSelection((int)index, (int)g_findToolCurrentSearch.length() - 1);
+		SetCaretCharacterIndex((int)index + (int)g_findToolCurrentSearch.length(), windowHandles.StatusBarLabel);
 	}
 	g_findToolSearchingForward = true;
 	return true;
 }
 
-bool FindPrev()
+bool FindPrev(WindowHandles windowHandles)
 {
-	std::wstring const& text = GetAllText();
-	if (g_findToolCurrentIndex == 0) { g_findToolCurrentIndex = UINT_MAX; }
-	else if (g_findToolSearchingForward) { g_findToolCurrentIndex -= 2; }
+	UINT findToolCurrentIndex = g_caretCharacterIndex;
 
-	size_t index = text.rfind(g_findToolCurrentSearch.data(), g_findToolCurrentIndex);
+	std::wstring const& text = GetAllText();
+	if (findToolCurrentIndex == 0) { findToolCurrentIndex = UINT_MAX; }
+	else if (g_findToolSearchingForward) { findToolCurrentIndex -= 2; }
+
+	size_t index = text.rfind(g_findToolCurrentSearch.data(), findToolCurrentIndex);
 	if (index == std::wstring::npos)
 	{
 		MessageBox(NULL, L"Search string not found", L"Error", MB_ICONINFORMATION);
-		g_findToolCurrentIndex = UINT_MAX;
+		findToolCurrentIndex = UINT_MAX;
 	}
 	else
 	{
-		g_findToolCurrentIndex = (UINT)(index - 1);
-		ScrollTo(g_findToolCurrentIndex, ScrollToStyle::CENTER);
+		findToolCurrentIndex = (UINT)(index - 1);
+		ScrollTo(findToolCurrentIndex, ScrollToStyle::CENTER);
 		SetSelection((int)index, (int)g_findToolCurrentSearch.length() - 1);
+		SetCaretCharacterIndex((int)index, windowHandles.StatusBarLabel);
 	}
 	g_findToolSearchingForward = false;
 	return true;
@@ -3356,11 +3361,11 @@ bool HandleFindWindowEnterPressed(WindowHandles windowHandles)
 		bool shiftPressed = GetKeyState(VK_SHIFT) & 0x8000;
 		if (!shiftPressed)
 		{
-			FindNext();
+			FindNext(windowHandles);
 		}
 		else
 		{
-			FindPrev();
+			FindPrev(windowHandles);
 		}
 		return true;
 	}

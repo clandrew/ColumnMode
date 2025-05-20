@@ -468,13 +468,13 @@ LRESULT FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 		if (LOWORD(wParam) == ID_NEXT)
 		{
 			UpdateFindWindowStringFromDialog(g_windowHandles);
-			FindNext();
+			FindNext(g_windowHandles);
 			return (INT_PTR)TRUE;
 		}
 		else if (LOWORD(wParam) == ID_PREVIOUS)
 		{
 			UpdateFindWindowStringFromDialog(g_windowHandles);
-			FindPrev();
+			FindPrev(g_windowHandles);
 			return (INT_PTR)TRUE;
 		}
 		else if (LOWORD(wParam) == IDCANCEL)
