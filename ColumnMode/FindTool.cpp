@@ -8,7 +8,7 @@ using namespace ColumnMode;
 extern FindTool g_findTool;
 
 
-LRESULT ColumnMode::FindToolCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT ColumnMode::FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 	switch (message)
@@ -124,7 +124,7 @@ void ColumnMode::FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
 {
 	if (!m_hwndFindDialog)
 	{
-		m_hwndFindDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), hWnd, ColumnMode::FindToolCallback);
+		m_hwndFindDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), hWnd, ColumnMode::FindToolDialogProc);
 		m_editBoxHwnd = GetDlgItem(m_hwndFindDialog, IDC_FIND_EDITBOX);
 	}
 	if (!m_currentSearch.empty())

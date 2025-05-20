@@ -2,7 +2,7 @@
 
 namespace ColumnMode
 {
-	LRESULT CALLBACK FindToolCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK FindEditBoxCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 	class FindTool
