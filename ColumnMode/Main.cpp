@@ -21,6 +21,7 @@ LRESULT CALLBACK    TopLevelWndProc(HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK    DocumentWndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    DocumentProperties(HWND, UINT, WPARAM, LPARAM);
+LRESULT CALLBACK    FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 	_In_opt_ HINSTANCE hPrevInstance,
@@ -58,7 +59,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 		const HWND allWindowsForCurrentThread = nullptr;
 		while (PeekMessage(&msg, allWindowsForCurrentThread, 0, 0, PM_REMOVE))
 		{
-			if (g_windowHandles.FindTool && IsDialogMessage(g_windowHandles.FindTool, &msg))
+			if (g_windowHandles.FindToolDialogTopLevel && IsDialogMessage(g_windowHandles.FindToolDialogTopLevel, &msg))
 			{
 				// msg has already been processed by Find dialog
 				continue;
@@ -300,7 +301,14 @@ LRESULT CALLBACK TopLevelWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM 
 			OnDelete(g_windowHandles);
 			break;
 		case ID_EDIT_FIND:
-			OnFind(hInst, &g_windowHandles);
+			{
+				if (g_windowHandles.FindToolDialogTopLevel == nullptr)
+				{
+					g_windowHandles.FindToolDialogTopLevel = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), g_windowHandles.TopLevel, FindToolDialogProc);
+					g_windowHandles.FindToolDialogEditBox = GetDlgItem(g_windowHandles.FindToolDialogTopLevel, IDC_FIND_EDITBOX);
+				}
+			}
+			OnFindWindowDialogCreated(g_windowHandles);
 			break;
 		case ID_OPTIONS_DIAGRAMMODE:
 			OnDiagramMode(g_windowHandles);
@@ -441,6 +449,49 @@ INT_PTR CALLBACK DocumentProperties(HWND hDlg, UINT message, WPARAM wParam, LPAR
 		{
 			EndDialog(hDlg, LOWORD(wParam));
 			return (INT_PTR)TRUE;
+		}
+		break;
+	}
+	return (INT_PTR)FALSE;
+}
+
+LRESULT FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	UNREFERENCED_PARAMETER(lParam);
+	switch (message)
+	{
+	case WM_INITDIALOG:
+		//TODO set up initial search query?
+		return (INT_PTR)TRUE;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == ID_NEXT)
+		{
+			UpdateFindWindowStringFromDialog(g_windowHandles);
+			FindNext();
+			return (INT_PTR)TRUE;
+		}
+		else if (LOWORD(wParam) == ID_PREVIOUS)
+		{
+			UpdateFindWindowStringFromDialog(g_windowHandles);
+			FindPrev();
+			return (INT_PTR)TRUE;
+		}
+		else if (LOWORD(wParam) == IDCANCEL)
+		{
+			INT_PTR result = 0;
+			EndDialog(hDlg, result);
+			g_windowHandles.FindToolDialogEditBox = NULL;
+			g_windowHandles.FindToolDialogTopLevel = NULL;
+		}
+		else if (LOWORD(wParam) == IDOK)
+		{
+			//Enter key pressed
+			UpdateFindWindowStringFromDialog(g_windowHandles);
+			if (HandleFindWindowEnterPressed(g_windowHandles))
+			{
+				return (INT_PTR)TRUE;
+			}
 		}
 		break;
 	}

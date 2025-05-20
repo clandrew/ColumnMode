@@ -21,7 +21,6 @@ bool g_hasUnsavedChanges;
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
 ColumnMode::ThemeManager g_themeManager;
-FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -45,6 +44,10 @@ ComPtr<IDWriteTextLayout> g_textLayout;
 D2D1_SIZE_U g_documentWindowSize;
 
 LayoutInfo g_layoutInfo;
+
+UINT g_findToolCurrentIndex;
+std::wstring g_findToolCurrentSearch;
+bool g_findToolSearchingForward = true;
 
 struct Action
 {
@@ -2448,11 +2451,6 @@ void OnDelete(WindowHandles windowHandles)
 	RecreateTextLayout();
 }
 
-void OnFind(HINSTANCE hinstance, WindowHandles* pWindowHandles)
-{
-	g_findTool.EnsureDialogCreated(hinstance, pWindowHandles);
-}
-
 void OnCut(WindowHandles windowHandles)
 {
 	CopySelectionToClipboard();
@@ -3304,4 +3302,87 @@ void OnClose(WindowHandles windowHandles)
 std::wstring const& GetAllText()
 {
 	return g_allText;
+}
+
+bool FindNext()
+{
+	std::wstring const& text = GetAllText();
+	if (g_findToolCurrentIndex == UINT_MAX) { g_findToolCurrentIndex = 0; }
+	else if (!g_findToolSearchingForward) { g_findToolCurrentIndex += 2; }
+
+	size_t index = text.find(g_findToolCurrentSearch.data(), g_findToolCurrentIndex);
+	if (index == -1)
+	{
+		MessageBox(NULL, L"Search string not found", L"Error", MB_ICONINFORMATION);
+		g_findToolCurrentIndex = 0;
+	}
+	else
+	{
+		g_findToolCurrentIndex = (UINT)(index + 1);
+		ScrollTo(g_findToolCurrentIndex, ScrollToStyle::CENTER);
+		SetSelection((int)index, (int)g_findToolCurrentSearch.length() - 1);
+	}
+	g_findToolSearchingForward = true;
+	return true;
+}
+
+bool FindPrev()
+{
+	std::wstring const& text = GetAllText();
+	if (g_findToolCurrentIndex == 0) { g_findToolCurrentIndex = UINT_MAX; }
+	else if (g_findToolSearchingForward) { g_findToolCurrentIndex -= 2; }
+
+	size_t index = text.rfind(g_findToolCurrentSearch.data(), g_findToolCurrentIndex);
+	if (index == std::wstring::npos)
+	{
+		MessageBox(NULL, L"Search string not found", L"Error", MB_ICONINFORMATION);
+		g_findToolCurrentIndex = UINT_MAX;
+	}
+	else
+	{
+		g_findToolCurrentIndex = (UINT)(index - 1);
+		ScrollTo(g_findToolCurrentIndex, ScrollToStyle::CENTER);
+		SetSelection((int)index, (int)g_findToolCurrentSearch.length() - 1);
+	}
+	g_findToolSearchingForward = false;
+	return true;
+}
+
+bool HandleFindWindowEnterPressed(WindowHandles windowHandles)
+{
+	HWND hwnd = GetFocus();
+	if (hwnd == windowHandles.FindToolDialogEditBox)
+	{
+		bool shiftPressed = GetKeyState(VK_SHIFT) & 0x8000;
+		if (!shiftPressed)
+		{
+			FindNext();
+		}
+		else
+		{
+			FindPrev();
+		}
+		return true;
+	}
+	return false;
+}
+
+bool UpdateFindWindowStringFromDialog(WindowHandles windowHandles)
+{
+	wchar_t textBuffer[64]{};
+	int numChars = Static_GetText(windowHandles.FindToolDialogEditBox, textBuffer, _countof(textBuffer));
+	g_findToolCurrentSearch.assign(textBuffer, numChars);
+	return true;
+}
+
+void OnFindWindowDialogCreated(WindowHandles windowHandles)
+{
+	if (!g_findToolCurrentSearch.empty())
+	{
+		// initialize the edit box with the previous search string, but select all text so that it will be overwritten when you start typing
+		Static_SetText(windowHandles.FindToolDialogEditBox, g_findToolCurrentSearch.data());
+		SendMessage(windowHandles.FindToolDialogEditBox, EM_SETSEL, 0, -1);
+	}
+	ShowWindow(windowHandles.FindToolDialogTopLevel, SW_SHOW);
+	SetFocus(windowHandles.FindToolDialogEditBox);
 }

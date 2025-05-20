@@ -156,7 +156,6 @@
   <ItemGroup>
     <ClInclude Include="..\External\json.hpp" />
     <ClInclude Include="ColumnModePluginApi.h" />
-    <ClInclude Include="FindTool.h" />
     <ClInclude Include="LayoutInfo.h" />
     <ClInclude Include="Main.h" />
     <ClInclude Include="MenuHelper.h" />
@@ -172,7 +171,6 @@
     <ClInclude Include="WindowManager.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FindTool.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="MenuHelper.cpp" />
     <ClCompile Include="PluginManager.cpp" />

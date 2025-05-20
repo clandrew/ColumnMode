@@ -7,7 +7,9 @@ struct WindowHandles
 	HWND TopLevel;
 	HWND Document;
 	HWND StatusBarLabel;
-	HWND FindTool;
+
+	HWND FindToolDialogTopLevel;
+	HWND FindToolDialogEditBox;
 };
 
 void InitManagers(HINSTANCE hinstance, WindowHandles windowHandles);
@@ -47,7 +49,6 @@ void OnCreateTheme(HWND hwnd, HINSTANCE hInst);
 bool OnMaybeDynamicMenuItemSelected(WindowHandles windowHandles, int id);
 void OnDiagramMode(WindowHandles windowHandles);
 void OnTextMode(WindowHandles windowHandles);
-void OnFind(HINSTANCE hinstance, WindowHandles* pWindowHandles);
 
 // Document properties dialog
 void OnInitializeDocumentProperties(HWND hDlg);
@@ -58,6 +59,13 @@ void OnClipboardContentsChanged(WindowHandles windowHandles);
 // Dynamic Menu Item selection
 bool OnMaybePluginSelected(WindowHandles windowHandles, int id);
 bool OnMaybeThemeSelected(WindowHandles windowHandles, int id);
+
+// Find tool functions
+bool FindNext();
+bool FindPrev();
+bool HandleFindWindowEnterPressed(WindowHandles windowHandles);
+bool UpdateFindWindowStringFromDialog(WindowHandles windowHandles);
+void OnFindWindowDialogCreated(WindowHandles windowHandles);
 
 void PromptToSaveUnsavedChanges();
 
@@ -83,5 +91,3 @@ enum class ScrollToStyle
 	BOTTOM
 };
 void ScrollTo(UINT index, ScrollToStyle scrollStyle = ScrollToStyle::CENTER);
-
-FindTool& GetFindTool();
