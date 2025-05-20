@@ -50,7 +50,7 @@ LRESULT FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 
 bool FindTool::FindNext()
 {
-	std::wstring& text = GetAllText();
+	std::wstring const& text = GetAllText();
 	if (m_currentIndex == UINT_MAX) { m_currentIndex = 0; }
 	else if (!m_searchingForward) { m_currentIndex+=2; }
 
@@ -72,7 +72,7 @@ bool FindTool::FindNext()
 
 bool FindTool::FindPrev()
 {
-	std::wstring& text = GetAllText();
+	std::wstring const& text = GetAllText();
 	if (m_currentIndex == 0) { m_currentIndex = UINT_MAX; }
 	else if (m_searchingForward) { m_currentIndex-=2; }
 

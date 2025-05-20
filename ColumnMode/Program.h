@@ -70,7 +70,7 @@ struct Drag
 
 void GetMouseInfo(LPARAM lParam, _Out_ Drag& mouseInfo);
 
-std::wstring& GetAllText();
+std::wstring const& GetAllText();
 
 //Assumes single line selection
 void SetSelection(int startCharIndex, int length, DWRITE_HIT_TEST_METRICS* hitTest = nullptr);

@@ -3301,7 +3301,7 @@ void OnClose(WindowHandles windowHandles)
 	DestroyWindow(windowHandles.TopLevel);
 }
 
-std::wstring& GetAllText()
+std::wstring const& GetAllText()
 {
 	return g_allText;
 }
