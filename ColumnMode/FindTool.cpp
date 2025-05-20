@@ -7,7 +7,6 @@ using namespace ColumnMode;
 
 extern FindTool g_findTool;
 
-WNDPROC lpfnOrigEditBoxCallback;
 
 LRESULT ColumnMode::FindToolCallback(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
