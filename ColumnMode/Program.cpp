@@ -21,7 +21,7 @@ bool g_hasUnsavedChanges;
 ColumnMode::PluginManager g_pluginManager;
 ColumnMode::WindowManager g_windowManager;
 ColumnMode::ThemeManager g_themeManager;
-ColumnMode::FindTool g_findTool;
+FindTool g_findTool;
 
 ComPtr<ID2D1Factory1> g_d2dFactory;
 
@@ -3306,7 +3306,7 @@ std::wstring& GetAllText()
 	return g_allText;
 }
 
-ColumnMode::FindTool& GetFindTool()
+FindTool& GetFindTool()
 {
 	return g_findTool;
 }

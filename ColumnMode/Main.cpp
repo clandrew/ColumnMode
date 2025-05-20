@@ -53,7 +53,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
 	// Message loop
 	g_done = false;
-	ColumnMode::FindTool& findTool = GetFindTool();
+	FindTool& findTool = GetFindTool();
 	HWND findDialogHwnd = NULL;
 	while (!g_done)
 	{

@@ -83,4 +83,4 @@ enum class ScrollToStyle
 };
 void ScrollTo(UINT index, ScrollToStyle scrollStyle = ScrollToStyle::CENTER);
 
-ColumnMode::FindTool& GetFindTool();
+FindTool& GetFindTool();

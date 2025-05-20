@@ -8,7 +8,7 @@ using namespace ColumnMode;
 extern FindTool g_findTool;
 
 
-LRESULT ColumnMode::FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	UNREFERENCED_PARAMETER(lParam);
 	switch (message)
@@ -48,7 +48,7 @@ LRESULT ColumnMode::FindToolDialogProc(HWND hDlg, UINT message, WPARAM wParam, L
 	return (INT_PTR)FALSE;
 }
 
-bool ColumnMode::FindTool::FindNext()
+bool FindTool::FindNext()
 {
 	std::wstring& text = GetAllText();
 	if (m_currentIndex == UINT_MAX) { m_currentIndex = 0; }
@@ -70,7 +70,7 @@ bool ColumnMode::FindTool::FindNext()
 	return true;
 }
 
-bool ColumnMode::FindTool::FindPrev()
+bool FindTool::FindPrev()
 {
 	std::wstring& text = GetAllText();
 	if (m_currentIndex == 0) { m_currentIndex = UINT_MAX; }
@@ -92,7 +92,7 @@ bool ColumnMode::FindTool::FindPrev()
 	return true;
 }
 
-bool ColumnMode::FindTool::HandleEnterPressed()
+bool FindTool::HandleEnterPressed()
 {
 	HWND hwnd = GetFocus();
 	if (hwnd == m_editBoxHwnd)
@@ -111,7 +111,7 @@ bool ColumnMode::FindTool::HandleEnterPressed()
 	return false;
 }
 
-bool ColumnMode::FindTool::UpdateStringFromDialog(HWND hDlg, int textBoxIdentifier)
+bool FindTool::UpdateStringFromDialog(HWND hDlg, int textBoxIdentifier)
 {
 	//HWND editHwnd = GetDlgItem(hDlg, IDC_FIND_EDITBOX);
 	wchar_t textBuffer[64]{};
@@ -120,11 +120,11 @@ bool ColumnMode::FindTool::UpdateStringFromDialog(HWND hDlg, int textBoxIdentifi
 	return true;
 }
 
-void ColumnMode::FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
+void FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
 {
 	if (!m_hwndFindDialog)
 	{
-		m_hwndFindDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), hWnd, ColumnMode::FindToolDialogProc);
+		m_hwndFindDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_FIND_DIALOG), hWnd, FindToolDialogProc);
 		m_editBoxHwnd = GetDlgItem(m_hwndFindDialog, IDC_FIND_EDITBOX);
 	}
 	if (!m_currentSearch.empty())
@@ -137,13 +137,13 @@ void ColumnMode::FindTool::EnsureDialogCreated(HINSTANCE hInst, HWND hWnd)
 	SetFocus(m_editBoxHwnd);
 }
 
-bool ColumnMode::FindTool::TryGetFindDialogHwnd(HWND* pHwnd)
+bool FindTool::TryGetFindDialogHwnd(HWND* pHwnd)
 {
 	*pHwnd = m_hwndFindDialog;
 	return m_hwndFindDialog != NULL;
 }
 
-INT_PTR ColumnMode::FindTool::CloseDialog()
+INT_PTR FindTool::CloseDialog()
 {
 	if (m_hwndFindDialog)
 	{
