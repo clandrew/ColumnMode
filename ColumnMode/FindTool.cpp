@@ -113,7 +113,6 @@ bool FindTool::HandleEnterPressed()
 
 bool FindTool::UpdateStringFromDialog(HWND hDlg, int textBoxIdentifier)
 {
-	//HWND editHwnd = GetDlgItem(hDlg, IDC_FIND_EDITBOX);
 	wchar_t textBuffer[64]{};
 	int numChars = Static_GetText(m_editBoxHwnd, textBuffer, _countof(textBuffer));
 	m_currentSearch.assign(textBuffer, numChars);
