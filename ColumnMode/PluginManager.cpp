@@ -123,21 +123,6 @@ Plugin* ColumnMode::PluginManager::GetPluginByName(LPCWSTR pluginName)
 	return nullptr;
 }
 
-bool PluginManager::GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin)
-{
-	assert(ppPlugin != nullptr);
-	*ppPlugin = nullptr;
-	for (Plugin& p : m_plugins)
-	{
-		if (p.m_name.compare(pluginName) == 0)
-		{
-			*ppPlugin = &p;
-			return true;
-		}
-	}
-	return false;
-}
-
 #define DEFINE_PLUGINMANAGER_FUNCTION_CALL_ALL(name, parameterList, parameterNames)\
 void PluginManager::PF_##name##_ALL parameterList \
 {\
