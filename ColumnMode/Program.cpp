@@ -3298,16 +3298,11 @@ void OnClose(WindowHandles windowHandles)
 	DestroyWindow(windowHandles.TopLevel);
 }
 
-std::wstring const& GetAllText()
-{
-	return g_allText;
-}
-
 bool FindNext(WindowHandles windowHandles)
 {
 	UINT findToolCurrentIndex = g_caretCharacterIndex;
 
-	std::wstring const& text = GetAllText();
+	std::wstring const& text = g_allText;
 	if (findToolCurrentIndex == UINT_MAX) { findToolCurrentIndex = 0; }
 	else if (!g_findToolSearchingForward) { findToolCurrentIndex += 2; }
 
@@ -3332,7 +3327,7 @@ bool FindPrev(WindowHandles windowHandles)
 {
 	UINT findToolCurrentIndex = g_caretCharacterIndex;
 
-	std::wstring const& text = GetAllText();
+	std::wstring const& text = g_allText;
 	if (findToolCurrentIndex == 0) { findToolCurrentIndex = UINT_MAX; }
 	else if (g_findToolSearchingForward) { findToolCurrentIndex -= 2; }
 
