@@ -2860,7 +2860,7 @@ void OnPluginRescan(WindowHandles windowHandles, bool skipRescan)
 	 {
 		 AppendMenu(pluginMenu, MF_STRING, id, str.c_str());
 		 //If already active:
-		 if (g_pluginManager.IsPluginLoaded(str.c_str()))
+		 if (g_pluginManager.GetPluginByName(str.c_str()))
 		 {
 			 CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
 		 }
@@ -2966,11 +2966,14 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 	}
 	WCHAR buff[64];
 	int size = GetMenuString(pluginMenu, id, buff, 64, MF_BYCOMMAND);
+	
 	if (size > 0)
 	{
-		if (!g_pluginManager.IsPluginLoaded(buff))
+		ColumnMode::Plugin* plugin = g_pluginManager.GetPluginByName(buff);
+
+		if (!plugin)
 		{
-			if (SUCCEEDED(g_pluginManager.LoadPlugin(buff)))
+			if (SUCCEEDED(g_pluginManager.LoadPluginByName(buff)))
 			{
 				//Only check it if we actually loaded successfully
 				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_CHECKED);
@@ -2978,7 +2981,7 @@ bool OnMaybePluginSelected(WindowHandles windowHandles, int id)
 		}
 		else
 		{
-			if (SUCCEEDED(g_pluginManager.UnloadPlugin(buff)))
+			if (SUCCEEDED(g_pluginManager.UnloadPlugin(plugin)))
 			{
 				//uncheck after unload
 				CheckMenuItem(pluginMenu, id, MF_BYCOMMAND | MF_UNCHECKED);

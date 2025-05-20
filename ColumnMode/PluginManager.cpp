@@ -59,7 +59,7 @@ HRESULT ColumnMode::PluginManager::ScanForPlugins()
 	return S_OK;
 }
 
-HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
+HRESULT ColumnMode::PluginManager::LoadPluginByName(LPCWSTR pluginName)
 {
 	std::filesystem::path path(m_modulesRootPath);
 	path.append(pluginName)	//Plugins should be in a folder of the plugin name
@@ -100,32 +100,27 @@ HRESULT ColumnMode::PluginManager::LoadPlugin(LPCWSTR pluginName)
 	return S_OK;
 }
 
-HRESULT ColumnMode::PluginManager::UnloadPlugin(LPCWSTR pluginName)
+HRESULT ColumnMode::PluginManager::UnloadPlugin(Plugin* plugin)
 {
-	Plugin* plugin;
-	if (GetPlugin(pluginName, &plugin))
+	plugin->OnShutdown();
+	if (!FreeLibrary(plugin->m_hPluginDll))
 	{
-		plugin->OnShutdown();
-		if (!FreeLibrary(plugin->m_hPluginDll))
-		{
-			return E_FAIL;
-		}
-		m_plugins.remove(*plugin);
-		return S_OK;
+		return E_FAIL;
 	}
-	return S_FALSE;
+	m_plugins.remove(*plugin);
+	return S_OK;
 }
 
-bool ColumnMode::PluginManager::IsPluginLoaded(LPCWSTR pluginName)
+Plugin* ColumnMode::PluginManager::GetPluginByName(LPCWSTR pluginName)
 {
 	for (Plugin& p : m_plugins)
 	{
 		if (p.m_name.compare(pluginName) == 0)
 		{
-			return true;
+			return &p;
 		}
 	}
-	return false;
+	return nullptr;
 }
 
 bool PluginManager::GetPlugin(LPCWSTR pluginName, Plugin** ppPlugin)
